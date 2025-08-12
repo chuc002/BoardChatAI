@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - Board Continuity MVP{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-comments me-2"></i>Chat with Your Documents</h1>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card h-100" style="min-height: 70vh;">
+            <!-- Chat Messages Area -->
+            <div class="card-body d-flex flex-column">
+                <div id="chatMessages" class="flex-grow-1 overflow-auto mb-3" style="max-height: 60vh;">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-robot fa-3x mb-3"></i>
+                        <h5>Ready to help you explore your documents</h5>
+                        <p>Ask me anything about your uploaded PDF files!</p>
+                    </div>
+                </div>
+                
+                <!-- Typing Indicator -->
+                <div id="typingIndicator" class="mb-3" style="display: none;">
+                    <div class="d-flex align-items-center text-muted">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        AI is thinking...
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <form id="chatForm" class="mt-auto">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="messageInput" 
+                               placeholder="Ask a question about your documents..." 
+                               maxlength="1000" required>
+                        <button type="submit" class="btn btn-primary" id="sendBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        <small>Ask questions like: "What are the key findings?" or "Summarize the main points"</small>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Citation Modal -->
+<div class="modal fade" id="citationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-quote-right me-2"></i>Citation Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="citationContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

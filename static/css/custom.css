@@ -1,0 +1,129 @@
+/* Custom styles for Board Continuity MVP */
+
+.citation-btn {
+    border-radius: 15px;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.citation-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.message-content {
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+#chatMessages {
+    scroll-behavior: smooth;
+}
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatMessages::-webkit-scrollbar-track {
+    background: var(--bs-gray-100);
+    border-radius: 3px;
+}
+
+#chatMessages::-webkit-scrollbar-thumb {
+    background: var(--bs-gray-400);
+    border-radius: 3px;
+}
+
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-gray-500);
+}
+
+.card {
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Upload drag and drop styling */
+.border-primary {
+    border-color: var(--bs-primary) !important;
+    border-width: 2px !important;
+    border-style: dashed !important;
+}
+
+/* Typing indicator animation */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .citation-btn {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .message-content {
+        font-size: 0.9rem;
+    }
+}
+
+/* Dark mode specific adjustments */
+[data-bs-theme="dark"] .bg-light {
+    background-color: var(--bs-gray-800) !important;
+    color: var(--bs-gray-100);
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: var(--bs-gray-400) !important;
+}
+
+/* Animation for new messages */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-card {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Citation modal improvements */
+.modal-body .bg-light {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* File upload improvements */
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Progress bar styling */
+.progress {
+    height: 8px;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
