@@ -16,32 +16,14 @@
                 <i class="fas fa-file-pdf me-2"></i>Board Continuity MVP
             </a>
             
-            {% if current_user.is_authenticated %}
             <div class="navbar-nav ms-auto">
-                <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user me-1"></i>{{ current_user.name }}
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                        </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('chat') }}">
-                            <i class="fas fa-comments me-2"></i>Chat
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a></li>
-                    </ul>
-                </div>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                </a>
+                <a class="nav-link" href="{{ url_for('chat') }}">
+                    <i class="fas fa-comments me-2"></i>Chat
+                </a>
             </div>
-            {% else %}
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-                <a class="nav-link" href="{{ url_for('register') }}">Register</a>
-            </div>
-            {% endif %}
         </div>
     </nav>
 

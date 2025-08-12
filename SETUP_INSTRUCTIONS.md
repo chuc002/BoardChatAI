@@ -15,22 +15,14 @@ Your application is running successfully, but you need to set up the database ta
 -- Enable pgvector extension for vector similarity search
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Documents table  
+-- Documents table (no users table needed for MVP)
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    org_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
     filename TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    uploaded_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     processed BOOLEAN DEFAULT FALSE
 );
 
@@ -47,7 +39,8 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 -- Chat messages table
 CREATE TABLE IF NOT EXISTS chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    org_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
     message TEXT NOT NULL,
     response TEXT NOT NULL,
     citations JSONB,
@@ -55,9 +48,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id);
+CREATE INDEX IF NOT EXISTS idx_documents_org_id ON documents(org_id);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON chat_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_org_id ON chat_messages(org_id);
 
 -- Function for vector similarity search
 CREATE OR REPLACE FUNCTION search_document_chunks(

@@ -1,7 +1,6 @@
 import os
 import logging
 import uuid
-import hashlib
 from datetime import datetime
 from supabase import create_client, Client
 from models import User, Document, DocumentChunk
@@ -20,95 +19,37 @@ SUPABASE_URL = _get_env("SUPABASE_URL", "SUPABASE_PROJECT_URL")
 SUPABASE_SERVICE_ROLE = _get_env("SUPABASE_SERVICE_ROLE", "SUPABASE_SERVICE_KEY", "SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_ANON_KEY = _get_env("SUPABASE_ANON_KEY", required=False)
 
+# Dev environment user settings
+DEV_ORG_ID = _get_env("DEV_ORG_ID", required=False) or "dev-org-001"
+DEV_USER_ID = _get_env("DEV_USER_ID", required=False) or "dev-user-001"
+
 supa: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-def hash_password(password):
-    """Simple password hashing - in production, use proper hashing like bcrypt"""
-    return hashlib.sha256(password.encode()).hexdigest()
+def get_current_user():
+    """Get current user for MVP - uses environment variables"""
+    return User(
+        id=DEV_USER_ID,
+        email="dev@example.com",
+        name="Development User",
+        created_at=datetime.utcnow().isoformat()
+    )
 
-def create_user(email, password, name):
-    """Create a new user"""
-    try:
-        # Check if user already exists
-        existing_user = supa.table("users").select("*").eq("email", email).execute()
-        if existing_user.data:
-            raise Exception("User with this email already exists")
-        
-        user_data = {
-            "id": str(uuid.uuid4()),
-            "email": email,
-            "password_hash": hash_password(password),
-            "name": name,
-            "created_at": datetime.utcnow().isoformat()
-        }
-        
-        result = supa.table("users").insert(user_data).execute()
-        
-        if result.data:
-            user_record = result.data[0]
-            return User(
-                id=user_record["id"],
-                email=user_record["email"],
-                name=user_record["name"],
-                created_at=user_record["created_at"]
-            )
-        else:
-            raise Exception("Failed to create user")
-            
-    except Exception as e:
-        logging.error(f"User creation failed: {str(e)}")
-        raise
+def get_current_org_id():
+    """Get current organization ID for MVP"""
+    return DEV_ORG_ID
 
-def authenticate_user(email, password):
-    """Authenticate user and return User object"""
-    try:
-        result = supa.table("users").select("*").eq("email", email).execute()
-        
-        if result.data and len(result.data) > 0:
-            user_record = result.data[0]
-            if user_record["password_hash"] == hash_password(password):
-                return User(
-                    id=user_record["id"],
-                    email=user_record["email"],
-                    name=user_record["name"],
-                    created_at=user_record["created_at"]
-                )
-        
-        return None
-        
-    except Exception as e:
-        logging.error(f"Authentication failed: {str(e)}")
-        raise
+# Remove all user authentication functions for MVP - using DEV environment variables instead
 
-def get_user_by_id(user_id):
-    """Get user by ID for Flask-Login"""
-    try:
-        result = supa.table("users").select("*").eq("id", user_id).execute()
-        
-        if result.data and len(result.data) > 0:
-            user_record = result.data[0]
-            return User(
-                id=user_record["id"],
-                email=user_record["email"],
-                name=user_record["name"],
-                created_at=user_record["created_at"]
-            )
-        
-        return None
-        
-    except Exception as e:
-        logging.error(f"Get user by ID failed: {str(e)}")
-        return None
-
-def save_document(user_id, filename, file_path):
+def save_document(filename, file_path):
     """Save document record to database"""
     try:
         document_data = {
             "id": str(uuid.uuid4()),
-            "user_id": user_id,
+            "org_id": get_current_org_id(),
+            "created_by": DEV_USER_ID,
             "filename": filename,
             "file_path": file_path,
-            "uploaded_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow().isoformat(),
             "processed": False
         }
         
@@ -118,10 +59,10 @@ def save_document(user_id, filename, file_path):
             doc_record = result.data[0]
             return Document(
                 id=doc_record["id"],
-                user_id=doc_record["user_id"],
+                user_id=doc_record["created_by"],
                 filename=doc_record["filename"],
                 file_path=doc_record["file_path"],
-                uploaded_at=doc_record["uploaded_at"],
+                uploaded_at=doc_record["created_at"],
                 processed=doc_record["processed"]
             )
         else:
@@ -131,19 +72,19 @@ def save_document(user_id, filename, file_path):
         logging.error(f"Save document failed: {str(e)}")
         raise
 
-def get_user_documents(user_id):
-    """Get all documents for a user"""
+def get_user_documents():
+    """Get all documents for current organization"""
     try:
-        result = supa.table("documents").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
+        result = supa.table("documents").select("*").eq("org_id", get_current_org_id()).order("created_at", desc=True).execute()
         
         documents = []
         for doc_record in result.data:
             documents.append(Document(
                 id=doc_record["id"],
-                user_id=doc_record["user_id"],
+                user_id=doc_record.get("created_by", DEV_USER_ID),
                 filename=doc_record["filename"],
                 file_path=doc_record["file_path"],
-                uploaded_at=doc_record["uploaded_at"],
+                uploaded_at=doc_record["created_at"],
                 processed=doc_record["processed"]
             ))
         
@@ -153,14 +94,14 @@ def get_user_documents(user_id):
         logging.error(f"Get user documents failed: {str(e)}")
         return []
 
-def delete_document(document_id, user_id):
+def delete_document(document_id):
     """Delete a document and its chunks"""
     try:
         # First, delete document chunks
         supa.table("document_chunks").delete().eq("document_id", document_id).execute()
         
-        # Then delete the document
-        result = supa.table("documents").delete().eq("id", document_id).eq("user_id", user_id).execute()
+        # Then delete the document (ensure it belongs to current org)
+        result = supa.table("documents").delete().eq("id", document_id).eq("org_id", get_current_org_id()).execute()
         
         return True
         
@@ -199,12 +140,12 @@ def save_document_chunks(document_id, chunks):
         logging.error(f"Save document chunks failed: {str(e)}")
         raise
 
-def search_similar_chunks(user_id, query_embedding, limit=5):
+def search_similar_chunks(query_embedding, limit=5):
     """Search for similar chunks using vector similarity"""
     try:
-        # Get user's documents
-        user_docs = supa.table("documents").select("id").eq("user_id", user_id).execute()
-        doc_ids = [doc["id"] for doc in user_docs.data] if user_docs.data else []
+        # Get current org's documents
+        org_docs = supa.table("documents").select("id").eq("org_id", get_current_org_id()).execute()
+        doc_ids = [doc["id"] for doc in org_docs.data] if org_docs.data else []
         
         if not doc_ids:
             return []
@@ -221,12 +162,12 @@ def search_similar_chunks(user_id, query_embedding, limit=5):
             return result.data if result.data else []
         except Exception as e:
             logging.warning(f"Vector search failed: {str(e)}")
-            # Fallback: return recent chunks from user's documents
+            # Fallback: return recent chunks from org's documents
             if not doc_ids:
                 return []
             result = supa.table("document_chunks").select("""
                 id, document_id, content, page_number,
-                documents!inner(filename, user_id)
+                documents!inner(filename, org_id)
             """).in_("document_id", doc_ids).limit(limit).execute()
             
             chunks = []
@@ -244,12 +185,13 @@ def search_similar_chunks(user_id, query_embedding, limit=5):
         logging.error(f"Search similar chunks failed: {str(e)}")
         return []
 
-def save_chat_message(user_id, message, response, citations):
+def save_chat_message(message, response, citations):
     """Save chat message to database"""
     try:
         chat_data = {
             "id": str(uuid.uuid4()),
-            "user_id": user_id,
+            "org_id": get_current_org_id(),
+            "created_by": DEV_USER_ID,
             "message": message,
             "response": response,
             "citations": citations,
@@ -265,16 +207,16 @@ def save_chat_message(user_id, message, response, citations):
 def get_document_by_id(document_id):
     """Get document by ID"""
     try:
-        result = supa.table("documents").select("*").eq("id", document_id).execute()
+        result = supa.table("documents").select("*").eq("id", document_id).eq("org_id", get_current_org_id()).execute()
         
         if result.data and len(result.data) > 0:
             doc_record = result.data[0]
             return Document(
                 id=doc_record["id"],
-                user_id=doc_record["user_id"],
+                user_id=doc_record.get("created_by", DEV_USER_ID),
                 filename=doc_record["filename"],
                 file_path=doc_record["file_path"],
-                uploaded_at=doc_record["uploaded_at"],
+                uploaded_at=doc_record["created_at"],
                 processed=doc_record["processed"]
             )
         
@@ -285,6 +227,6 @@ def get_document_by_id(document_id):
         return None
 
 __all__ = ["supa", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE", "SUPABASE_ANON_KEY", 
-           "create_user", "authenticate_user", "get_user_by_id", "save_document", 
+           "get_current_user", "get_current_org_id", "save_document", 
            "get_user_documents", "delete_document", "save_document_chunks", 
            "search_similar_chunks", "save_chat_message", "get_document_by_id"]

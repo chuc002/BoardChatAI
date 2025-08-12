@@ -5,3 +5,6 @@ openai
 gunicorn
 python-dotenv
 requests
+pypdf
+pdfminer.six
+tiktoken

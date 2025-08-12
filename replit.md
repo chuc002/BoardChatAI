@@ -26,16 +26,16 @@ Preferred communication style: Simple, everyday language.
 - **Error Handling**: Comprehensive logging and user-friendly error messages
 
 ### Data Storage Solutions
-- **Primary Database**: Supabase (PostgreSQL) for user accounts, document metadata, chat history
+- **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history
 - **Document Storage**: Local file system with secure filename handling
 - **Vector Storage**: Embedded within Supabase for semantic search capabilities
-- **Data Models**: User, Document, DocumentChunk, and ChatMessage entities with proper relationships
+- **Data Models**: Document, DocumentChunk, and ChatMessage entities with org_id/created_by relationships
 
 ### Authentication and Authorization
-- **Strategy**: Email/password authentication with hashed passwords
-- **Session Management**: Flask-Login with secure session handling
-- **Access Control**: Login-required decorators protecting authenticated routes
-- **User Isolation**: All document and chat operations scoped to authenticated user
+- **Strategy**: Development mode using environment variables (DEV_ORG_ID and DEV_USER_ID)
+- **Session Management**: Bypassed for MVP - no login/registration required
+- **Access Control**: Open access to all routes for simplified development
+- **User Isolation**: All document and chat operations scoped to development organization
 
 ### Document Processing Pipeline
 - **PDF Extraction**: PyPDF2 for text extraction with page-level granularity

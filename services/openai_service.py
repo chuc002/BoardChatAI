@@ -29,14 +29,14 @@ def get_embeddings(texts):
         logging.error(f"Failed to generate embeddings: {str(e)}")
         raise
 
-def chat_with_documents(user_id, message):
+def chat_with_documents(message):
     """Chat with documents using GPT-4o and vector search for context"""
     try:
         # Generate embedding for the user's message
         message_embedding = get_embeddings([message])[0]
         
         # Search for relevant document chunks
-        relevant_chunks = search_similar_chunks(user_id, message_embedding, limit=5)
+        relevant_chunks = search_similar_chunks(message_embedding, limit=5)
         
         # Prepare context from relevant chunks
         context_parts = []
@@ -87,7 +87,7 @@ Question: {message}"""
         
         # Save the chat message
         try:
-            save_chat_message(user_id, message, ai_response, citations)
+            save_chat_message(message, ai_response, citations)
         except Exception as e:
             logging.warning(f"Failed to save chat message: {str(e)}")
         
