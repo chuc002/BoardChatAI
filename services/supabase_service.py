@@ -6,14 +6,21 @@ from datetime import datetime
 from supabase import create_client, Client
 from models import User, Document, DocumentChunk
 
-# Initialize Supabase client
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE")
+def _get_env(name: str, *aliases: str, required: bool = True) -> str | None:
+    for key in (name, *aliases):
+        val = os.getenv(key)
+        if val:
+            return val
+    if required:
+        raise ValueError(f"Missing required environment variable(s): {name}" + (f" (aliases: {', '.join(aliases)})" if aliases else ""))
+    return None
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE environment variables are required")
+# Primary names + common aliases
+SUPABASE_URL = _get_env("SUPABASE_URL", "SUPABASE_PROJECT_URL")
+SUPABASE_SERVICE_ROLE = _get_env("SUPABASE_SERVICE_ROLE", "SUPABASE_SERVICE_KEY", "SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_ANON_KEY = _get_env("SUPABASE_ANON_KEY", required=False)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supa: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
 def hash_password(password):
     """Simple password hashing - in production, use proper hashing like bcrypt"""
@@ -23,7 +30,7 @@ def create_user(email, password, name):
     """Create a new user"""
     try:
         # Check if user already exists
-        existing_user = supabase.table("users").select("*").eq("email", email).execute()
+        existing_user = supa.table("users").select("*").eq("email", email).execute()
         if existing_user.data:
             raise Exception("User with this email already exists")
         
@@ -35,7 +42,7 @@ def create_user(email, password, name):
             "created_at": datetime.utcnow().isoformat()
         }
         
-        result = supabase.table("users").insert(user_data).execute()
+        result = supa.table("users").insert(user_data).execute()
         
         if result.data:
             user_record = result.data[0]
@@ -55,7 +62,7 @@ def create_user(email, password, name):
 def authenticate_user(email, password):
     """Authenticate user and return User object"""
     try:
-        result = supabase.table("users").select("*").eq("email", email).execute()
+        result = supa.table("users").select("*").eq("email", email).execute()
         
         if result.data and len(result.data) > 0:
             user_record = result.data[0]
@@ -76,7 +83,7 @@ def authenticate_user(email, password):
 def get_user_by_id(user_id):
     """Get user by ID for Flask-Login"""
     try:
-        result = supabase.table("users").select("*").eq("id", user_id).execute()
+        result = supa.table("users").select("*").eq("id", user_id).execute()
         
         if result.data and len(result.data) > 0:
             user_record = result.data[0]
@@ -105,7 +112,7 @@ def save_document(user_id, filename, file_path):
             "processed": False
         }
         
-        result = supabase.table("documents").insert(document_data).execute()
+        result = supa.table("documents").insert(document_data).execute()
         
         if result.data:
             doc_record = result.data[0]
@@ -127,7 +134,7 @@ def save_document(user_id, filename, file_path):
 def get_user_documents(user_id):
     """Get all documents for a user"""
     try:
-        result = supabase.table("documents").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
+        result = supa.table("documents").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
         
         documents = []
         for doc_record in result.data:
@@ -150,10 +157,10 @@ def delete_document(document_id, user_id):
     """Delete a document and its chunks"""
     try:
         # First, delete document chunks
-        supabase.table("document_chunks").delete().eq("document_id", document_id).execute()
+        supa.table("document_chunks").delete().eq("document_id", document_id).execute()
         
         # Then delete the document
-        result = supabase.table("documents").delete().eq("id", document_id).eq("user_id", user_id).execute()
+        result = supa.table("documents").delete().eq("id", document_id).eq("user_id", user_id).execute()
         
         return True
         
@@ -181,10 +188,10 @@ def save_document_chunks(document_id, chunks):
         batch_size = 100
         for i in range(0, len(chunk_records), batch_size):
             batch = chunk_records[i:i + batch_size]
-            supabase.table("document_chunks").insert(batch).execute()
+            supa.table("document_chunks").insert(batch).execute()
         
         # Mark document as processed
-        supabase.table("documents").update({"processed": True}).eq("id", document_id).execute()
+        supa.table("documents").update({"processed": True}).eq("id", document_id).execute()
         
         logging.info(f"Successfully saved {len(chunk_records)} chunks for document {document_id}")
         
@@ -196,30 +203,28 @@ def search_similar_chunks(user_id, query_embedding, limit=5):
     """Search for similar chunks using vector similarity"""
     try:
         # Get user's documents
-        user_docs = supabase.table("documents").select("id").eq("user_id", user_id).execute()
+        user_docs = supa.table("documents").select("id").eq("user_id", user_id).execute()
         doc_ids = [doc["id"] for doc in user_docs.data] if user_docs.data else []
         
         if not doc_ids:
             return []
         
         # Use Supabase's vector search functionality
-        # This assumes you have set up the pgvector extension and similarity functions
-        result = supabase.rpc("search_document_chunks", {
-            "query_embedding": query_embedding,
-            "document_ids": doc_ids,
-            "similarity_threshold": 0.7,
-            "match_count": limit
-        }).execute()
-        
-        return result.data if result.data else []
-        
-    except Exception as e:
-        logging.error(f"Vector search failed: {str(e)}")
-        # Fallback: return recent chunks from user's documents
         try:
+            result = supa.rpc("search_document_chunks", {
+                "query_embedding": query_embedding,
+                "document_ids": doc_ids,
+                "similarity_threshold": 0.7,
+                "match_count": limit
+            }).execute()
+            
+            return result.data if result.data else []
+        except Exception as e:
+            logging.warning(f"Vector search failed: {str(e)}")
+            # Fallback: return recent chunks from user's documents
             if not doc_ids:
                 return []
-            result = supabase.table("document_chunks").select("""
+            result = supa.table("document_chunks").select("""
                 id, document_id, content, page_number,
                 documents!inner(filename, user_id)
             """).in_("document_id", doc_ids).limit(limit).execute()
@@ -234,8 +239,10 @@ def search_similar_chunks(user_id, query_embedding, limit=5):
                     'document_filename': chunk['documents']['filename']
                 })
             return chunks
-        except:
-            return []
+        
+    except Exception as e:
+        logging.error(f"Search similar chunks failed: {str(e)}")
+        return []
 
 def save_chat_message(user_id, message, response, citations):
     """Save chat message to database"""
@@ -249,7 +256,7 @@ def save_chat_message(user_id, message, response, citations):
             "created_at": datetime.utcnow().isoformat()
         }
         
-        supabase.table("chat_messages").insert(chat_data).execute()
+        supa.table("chat_messages").insert(chat_data).execute()
         
     except Exception as e:
         logging.error(f"Save chat message failed: {str(e)}")
@@ -258,7 +265,7 @@ def save_chat_message(user_id, message, response, citations):
 def get_document_by_id(document_id):
     """Get document by ID"""
     try:
-        result = supabase.table("documents").select("*").eq("id", document_id).execute()
+        result = supa.table("documents").select("*").eq("id", document_id).execute()
         
         if result.data and len(result.data) > 0:
             doc_record = result.data[0]
@@ -276,3 +283,8 @@ def get_document_by_id(document_id):
     except Exception as e:
         logging.error(f"Get document by ID failed: {str(e)}")
         return None
+
+__all__ = ["supa", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE", "SUPABASE_ANON_KEY", 
+           "create_user", "authenticate_user", "get_user_by_id", "save_document", 
+           "get_user_documents", "delete_document", "save_document_chunks", 
+           "search_similar_chunks", "save_chat_message", "get_document_by_id"]
