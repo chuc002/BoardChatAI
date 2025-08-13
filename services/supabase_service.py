@@ -57,6 +57,13 @@ def save_document(filename, file_path):
         # Determine MIME type
         mime_type = "application/pdf" if filename.lower().endswith('.pdf') else "application/octet-stream"
         
+        # Get file size
+        try:
+            import os
+            size_bytes = os.path.getsize(file_path)
+        except Exception:
+            size_bytes = 0
+        
         document_data = {
             "id": str(uuid.uuid4()),
             "org_id": get_current_org_id(),
@@ -70,6 +77,8 @@ def save_document(filename, file_path):
             "mime_type": mime_type,
             "status": "processing",
             "created_at": datetime.utcnow().isoformat(),
+            "uploaded_at": None,
+            "size_bytes": size_bytes,
             "processed": False
         }
         
