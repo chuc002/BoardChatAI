@@ -43,12 +43,32 @@ def get_current_org_id():
 def save_document(filename, file_path):
     """Save document record to database"""
     try:
+        # Calculate SHA256 hash of the file
+        import hashlib
+        sha256_hash = hashlib.sha256()
+        try:
+            with open(file_path, "rb") as f:
+                for byte_block in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(byte_block)
+            sha = sha256_hash.hexdigest()
+        except Exception:
+            sha = "unknown"
+        
+        # Determine MIME type
+        mime_type = "application/pdf" if filename.lower().endswith('.pdf') else "application/octet-stream"
+        
         document_data = {
             "id": str(uuid.uuid4()),
             "org_id": get_current_org_id(),
             "created_by": DEV_USER_ID,
+            "title": filename,
+            "name": filename,
             "filename": filename,
+            "storage_path": file_path,
             "file_path": file_path,
+            "sha256": sha,
+            "mime_type": mime_type,
+            "status": "processing",
             "created_at": datetime.utcnow().isoformat(),
             "processed": False
         }
