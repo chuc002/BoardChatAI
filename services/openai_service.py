@@ -19,7 +19,7 @@ def get_embeddings(texts):
             texts = [texts]
         
         response = client.embeddings.create(
-            model="text-embedding-ada-002",  # 1536 dimensions to match database schema
+            model="text-embedding-3-small",  # 1536 dimensions to match database schema
             input=texts
         )
         
@@ -29,14 +29,32 @@ def get_embeddings(texts):
         logging.error(f"Failed to generate embeddings: {str(e)}")
         raise
 
+def expand_query_terms(message):
+    """Expand query with related terms for better recall"""
+    expanded_terms = []
+    message_lower = message.lower()
+    
+    # Query expansion for "reserved" terms
+    if "reserved" in message_lower:
+        synonyms = ["reserved periods", "open times", "Primary Golfers", "Ladies' 18", "Ladies' 9", "Juniors"]
+        expanded_terms.extend(synonyms)
+    
+    # Return original message plus expanded terms
+    if expanded_terms:
+        return message + " " + " ".join(expanded_terms)
+    return message
+
 def chat_with_documents(message):
     """Chat with documents using GPT-4o and vector search for context"""
     try:
-        # Generate embedding for the user's message
-        message_embedding = get_embeddings([message])[0]
+        # Expand query terms for better recall
+        expanded_message = expand_query_terms(message)
         
-        # Search for relevant document chunks
-        relevant_chunks = search_similar_chunks(message_embedding, limit=5)
+        # Generate embedding for the expanded user's message
+        message_embedding = get_embeddings([expanded_message])[0]
+        
+        # Search for relevant document chunks with increased limit
+        relevant_chunks = search_similar_chunks(message_embedding, limit=40)
         
         # Prepare context from relevant chunks
         context_parts = []

@@ -208,7 +208,7 @@ def search_similar_chunks(query_embedding, limit=5):
             result = supa.rpc("search_document_chunks", {
                 "query_embedding": query_embedding,
                 "document_ids": doc_ids,
-                "similarity_threshold": 0.7,
+                "similarity_threshold": 0.3,  # Lowered threshold for broader recall
                 "match_count": limit
             }).execute()
             
