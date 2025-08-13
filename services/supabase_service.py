@@ -38,6 +38,31 @@ def get_current_org_id():
     """Get current organization ID for MVP"""
     return DEV_ORG_ID
 
+def update_document_status(document_id, status, processed=None, processing_error=None, pages=None):
+    """Update document processing status"""
+    try:
+        update_data = {"status": status}
+        
+        if processed is not None:
+            update_data["processed"] = processed
+        if processing_error is not None:
+            update_data["processing_error"] = processing_error
+        if pages is not None:
+            update_data["pages"] = pages
+            
+        result = supa.table("documents").update(update_data).eq("id", document_id).eq("org_id", get_current_org_id()).execute()
+        
+        if result.data:
+            logging.info(f"Document {document_id} status updated to {status}")
+            return True
+        else:
+            logging.error(f"Failed to update document {document_id} status")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Update document status failed: {str(e)}")
+        return False
+
 # Remove all user authentication functions for MVP - using DEV environment variables instead
 
 def save_document(filename, file_path):
@@ -75,11 +100,12 @@ def save_document(filename, file_path):
             "file_path": file_path,
             "sha256": sha,
             "mime_type": mime_type,
-            "status": "processing",
-            "created_at": datetime.utcnow().isoformat(),
-            "uploaded_at": None,
             "size_bytes": size_bytes,
-            "processed": False
+            "status": "processing",
+            "processed": False,
+            "processing_error": None,
+            "created_at": datetime.utcnow().isoformat(),
+            "uploaded_at": None
         }
         
         result = supa.table("documents").insert(document_data).execute()

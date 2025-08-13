@@ -1,7 +1,7 @@
 import logging
 import PyPDF2
 from io import BytesIO
-from services.supabase_service import save_document_chunks
+from services.supabase_service import save_document_chunks, update_document_status
 from services.openai_service import get_embeddings
 
 def extract_text_from_pdf(file_path):
@@ -107,8 +107,27 @@ def process_pdf(document_id, file_path):
         # Save chunks to database
         save_document_chunks(document_id, all_chunks)
         
+        # Update document status to ready
+        update_document_status(
+            document_id=document_id,
+            status="ready",
+            processed=True,
+            processing_error=None,
+            pages=len(page_contents)
+        )
+        
         logging.info(f"Successfully processed PDF for document {document_id}")
         
     except Exception as e:
+        error_message = f"PDF processing failed: {str(e)}"
         logging.error(f"PDF processing failed for document {document_id}: {str(e)}")
+        
+        # Update document status to error
+        update_document_status(
+            document_id=document_id,
+            status="error",
+            processed=False,
+            processing_error=error_message
+        )
+        
         raise
