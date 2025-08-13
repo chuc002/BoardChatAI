@@ -6,6 +6,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
+# Print startup info with environment variables
+DEV_ORG_ID = os.getenv("DEV_ORG_ID", "not-set")
+DEV_USER_ID = os.getenv("DEV_USER_ID", "not-set")
+print(f"BoardContinuity using ORG={DEV_ORG_ID} USER={DEV_USER_ID}")
+
 # Create the Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
