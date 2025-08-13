@@ -8,3 +8,15 @@ requests
 pypdf
 pdfminer.six
 tiktoken
+flask
+flask-cors
+flask-login
+gunicorn
+openai
+pdfminer.six
+pypdf
+python-dotenv
+requests
+supabase
+tiktoken
+werkzeug
