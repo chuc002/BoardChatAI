@@ -53,8 +53,8 @@ def chat_with_documents(message):
         # Generate embedding for the expanded user's message
         message_embedding = get_embeddings([expanded_message])[0]
         
-        # Search for relevant document chunks with increased limit
-        relevant_chunks = search_similar_chunks(message_embedding, limit=40)
+        # Search for relevant document chunks with increased limit and hybrid fallback
+        relevant_chunks = search_similar_chunks(message_embedding, limit=40, fallback_query=message)
         
         # Prepare context from relevant chunks
         context_parts = []

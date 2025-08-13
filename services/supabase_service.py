@@ -193,8 +193,65 @@ def save_document_chunks(document_id, chunks):
         logging.error(f"Save document chunks failed: {str(e)}")
         raise
 
-def search_similar_chunks(query_embedding, limit=5):
-    """Search for similar chunks using vector similarity"""
+def hybrid_search(supa, org_id, query, limit=40):
+    """Hybrid search combining vector and keyword search"""
+    try:
+        # SQL keyword search as fallback
+        keyword_query = f"""
+        SELECT dc.id, dc.document_id, dc.chunk_text as content, dc.page_number, d.filename as document_filename
+        FROM document_chunks dc
+        JOIN documents d ON dc.document_id = d.id
+        WHERE d.org_id = '{org_id}'
+        AND (
+            dc.chunk_text ILIKE '%{query}%'
+            OR dc.chunk_text ILIKE '%reserved%'
+            OR dc.chunk_text ILIKE '%Open Times%'
+            OR dc.chunk_text ILIKE '%Primary Golfers%'
+            OR dc.chunk_text ILIKE '%Ladies'' 18%'
+            OR dc.chunk_text ILIKE '%Ladies'' 9%'
+            OR dc.chunk_text ILIKE '%Juniors%'
+        )
+        LIMIT {limit};
+        """
+        
+        # Execute raw SQL query
+        result = supa.rpc("exec_sql", {"query": keyword_query}).execute()
+        
+        # If RPC fails, try alternative approach using table filters
+        if not result.data:
+            # Get all documents for the org
+            org_docs = supa.table("documents").select("id, filename").eq("org_id", org_id).execute()
+            doc_ids = [doc["id"] for doc in org_docs.data] if org_docs.data else []
+            
+            if not doc_ids:
+                return []
+            
+            # Search using table filters (simplified keyword search)
+            result = supa.table("document_chunks").select("""
+                id, document_id, chunk_text, page_number,
+                documents!inner(filename)
+            """).in_("document_id", doc_ids).text_search("chunk_text", query).limit(limit).execute()
+            
+            if result.data:
+                chunks = []
+                for chunk in result.data:
+                    chunks.append({
+                        'id': chunk['id'],
+                        'document_id': chunk['document_id'],
+                        'content': chunk['chunk_text'],
+                        'page_number': chunk.get('page_number'),
+                        'document_filename': chunk['documents']['filename']
+                    })
+                return chunks
+        
+        return result.data if result.data else []
+        
+    except Exception as e:
+        logging.error(f"Hybrid search failed: {str(e)}")
+        return []
+
+def search_similar_chunks(query_embedding, limit=5, fallback_query=None):
+    """Search for similar chunks using vector similarity with hybrid fallback"""
     try:
         # Get current org's documents
         org_docs = supa.table("documents").select("id").eq("org_id", get_current_org_id()).execute()
@@ -212,14 +269,42 @@ def search_similar_chunks(query_embedding, limit=5):
                 "match_count": limit
             }).execute()
             
-            return result.data if result.data else []
+            vector_results = result.data if result.data else []
+            
+            # If vector search returns < 3 results and we have a fallback query, use hybrid search
+            if len(vector_results) < 3 and fallback_query:
+                logging.info(f"Vector search returned {len(vector_results)} results, using hybrid search")
+                hybrid_results = hybrid_search(supa, get_current_org_id(), fallback_query, limit)
+                
+                # Merge and deduplicate results
+                seen = set()
+                merged_results = []
+                
+                # Add vector results first (higher priority)
+                for chunk in vector_results:
+                    key = (chunk.get('document_id'), chunk.get('id'))
+                    if key not in seen:
+                        seen.add(key)
+                        merged_results.append(chunk)
+                
+                # Add hybrid results for new chunks
+                for chunk in hybrid_results:
+                    key = (chunk.get('document_id'), chunk.get('id'))
+                    if key not in seen:
+                        seen.add(key)
+                        merged_results.append(chunk)
+                
+                return merged_results[:limit]
+            
+            return vector_results
+            
         except Exception as e:
             logging.warning(f"Vector search failed: {str(e)}")
             # Fallback: return recent chunks from org's documents
             if not doc_ids:
                 return []
             result = supa.table("document_chunks").select("""
-                id, document_id, content, page_number,
+                id, document_id, chunk_text as content, page_number,
                 documents!inner(filename, org_id)
             """).in_("document_id", doc_ids).limit(limit).execute()
             
@@ -228,7 +313,7 @@ def search_similar_chunks(query_embedding, limit=5):
                 chunks.append({
                     'id': chunk['id'],
                     'document_id': chunk['document_id'],
-                    'content': chunk['content'],
+                    'content': chunk['chunk_text'],
                     'page_number': chunk['page_number'],
                     'document_filename': chunk['documents']['filename']
                 })
