@@ -61,11 +61,15 @@ def chat_with_documents(message):
         citations = []
         
         for chunk in relevant_chunks:
-            context_parts.append(f"[Document: {chunk['document_filename']}, Page {chunk['page_number']}]\n{chunk['content']}")
+            # Include document_id and chunk_index in the context format
+            chunk_id = chunk.get('id', 'unknown')
+            doc_id = chunk.get('document_id', 'unknown')
+            context_parts.append(f"[Doc:{doc_id}#Chunk:{chunk_id}] {chunk['content']}")
             citations.append({
                 'document_id': chunk['document_id'],
                 'document_filename': chunk['document_filename'],
                 'page_number': chunk['page_number'],
+                'chunk_id': chunk_id,
                 'content_preview': chunk['content'][:150] + "..." if len(chunk['content']) > 150 else chunk['content']
             })
         
@@ -80,8 +84,9 @@ When responding:
 3. If the context doesn't contain enough information to answer the question, say so clearly
 4. Provide detailed, helpful responses that demonstrate understanding of the content
 5. Use a professional but conversational tone
+6. Prefer table rows when present
 
-The user has uploaded documents and you have access to relevant excerpts based on their question."""
+The user has uploaded documents and you have access to relevant excerpts based on their question. Each excerpt includes document and chunk identifiers for precise citation."""
 
         user_prompt = f"""Based on the following document excerpts, please answer this question: {message}
 
