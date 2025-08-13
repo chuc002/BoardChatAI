@@ -19,7 +19,7 @@ def get_embeddings(texts):
             texts = [texts]
         
         response = client.embeddings.create(
-            model="text-embedding-3-large",
+            model="text-embedding-ada-002",  # 1536 dimensions to match database schema
             input=texts
         )
         

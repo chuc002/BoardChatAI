@@ -173,9 +173,7 @@ def save_document_chunks(document_id, chunks):
             chunk_data = {
                 "id": str(uuid.uuid4()),
                 "document_id": document_id,
-                "content": chunk["content"],
-                "chunk_index": chunk["chunk_index"],
-                "page_number": chunk["page_number"],
+                "chunk_text": chunk["content"],
                 "embedding": chunk["embedding"]
             }
             chunk_records.append(chunk_data)
