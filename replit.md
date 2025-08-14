@@ -72,5 +72,23 @@ Preferred communication style: Simple, everyday language.
 - **HTMX**: Dynamic HTML enhancement for seamless interactions
 
 ### Environment Configuration
-- Required environment variables: OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
-- Optional: SESSION_SECRET for production security
+
+#### Required Secrets (Replit → Secrets)
+- **OPENAI_API_KEY**: OpenAI API key for GPT models and embeddings
+- **SUPABASE_URL**: Supabase project URL for database connection
+- **SUPABASE_SERVICE_ROLE**: Supabase service role key for admin operations
+- **DATABASE_URL**: PostgreSQL connection string from Supabase
+- **SESSION_SECRET**: Flask session encryption key (optional for development)
+
+#### Performance Tuning Secrets (Optional)
+- **CHAT_PRIMARY=gpt-4o**: Main model for generating final answers
+- **CHAT_COMPRESS=gpt-4o-mini**: Model for chunk summarization during ingestion  
+- **EMBED_MODEL=text-embedding-3-small**: Model for generating document embeddings
+- **MAX_CANDIDATES=24**: Maximum document chunks to retrieve per query
+- **MAX_SUMMARY_TOKENS=2400**: Token budget for building source notes from summaries
+- **MAX_FINAL_TOKENS=4800**: Maximum tokens allowed in final prompt to AI
+- **CHAT_TEMPERATURE=0.2**: AI response creativity (0.0-1.0, lower = more factual)
+
+#### Development Environment Variables
+- **DEV_ORG_ID**: Development organization ID for data isolation
+- **DEV_USER_ID**: Development user ID for attribution
