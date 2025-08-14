@@ -64,16 +64,24 @@ def chat():
     q = (request.form.get("q") if request.form else None) or (request.json.get("q") if request.is_json else None)
     if not q:
         return jsonify({"ok": False, "error": "missing q"}), 400
-    md, citations = answer_question_md(ORG_ID, q)
-    # persist history
-    supa.table("qa_history").insert({
-        "org_id": ORG_ID,
-        "user_id": USER_ID,
-        "question": q,
-        "answer_md": md,
-        "citations": json.loads(json.dumps(citations))  # ensure pure json
-    }).execute()
-    return jsonify({"ok": True, "markdown": md, "citations": citations})
+    
+    try:
+        md, citations = answer_question_md(ORG_ID, q)
+        # persist history
+        supa.table("qa_history").insert({
+            "org_id": ORG_ID,
+            "user_id": USER_ID,
+            "question": q,
+            "answer_md": md,
+            "citations": json.loads(json.dumps(citations))  # ensure pure json
+        }).execute()
+        return jsonify({"ok": True, "markdown": md, "citations": citations})
+    except Exception as e:
+        error_msg = str(e)
+        if "rate_limit_exceeded" in error_msg or "Request too large" in error_msg:
+            return jsonify({"ok": False, "error": "Query too complex or documents too large. Try a more specific question or upload smaller documents."}), 400
+        else:
+            return jsonify({"ok": False, "error": f"Processing error: {error_msg}"}), 500
 
 @app.get("/history")
 def history():

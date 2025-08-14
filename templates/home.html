@@ -127,9 +127,18 @@
         }
         // Chat answer
         if (e.detail && e.detail.elt && e.detail.elt.id === 'answer') {
-          try { const json = JSON.parse(e.detail.xhr.responseText); if (json.ok) renderAnswer(json); } catch(_) {}
-          // refresh history after each answer
-          htmx.ajax('GET', '/history', '#hist');
+          try { 
+            const json = JSON.parse(e.detail.xhr.responseText); 
+            if (json.ok) {
+              renderAnswer(json);
+              // refresh history after each answer
+              htmx.ajax('GET', '/history', '#hist');
+            } else {
+              e.detail.elt.innerHTML = `<div style="color:#dc2626; padding:12px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px">❌ ${json.error || 'Error processing question'}</div>`;
+            }
+          } catch(_) {
+            e.detail.elt.innerHTML = '<div style="color:#dc2626; padding:12px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px">❌ Error processing request</div>';
+          }
         }
         // History
         if (e.detail && e.detail.elt && e.detail.elt.id === 'hist') {
