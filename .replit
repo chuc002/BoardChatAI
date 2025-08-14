@@ -36,3 +36,6 @@ externalPort = 80
 [[ports]]
 localPort = 8000
 externalPort = 8000
+
+[agent]
+integrations = ["flask_supabase==1.0.0", "styling_replit==1.0.0", "python_openai==1.0.0"]

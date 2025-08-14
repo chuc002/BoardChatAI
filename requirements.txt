@@ -20,3 +20,13 @@ requests
 supabase
 tiktoken
 werkzeug
+flask
+flask-cors
+gunicorn
+openai
+pdfminer.six
+pypdf
+python-dotenv
+requests
+supabase
+tiktoken
