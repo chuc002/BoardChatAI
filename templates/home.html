@@ -58,7 +58,34 @@
           try {
             const response = JSON.parse(event.detail.xhr.responseText);
             if (response.ok && response.markdown) {
-              const html = marked.parse(response.markdown);
+              let html = marked.parse(response.markdown);
+              
+              // Build deduplicated sources section
+              if (response.citations && response.citations.length > 0) {
+                const byDoc = {};
+                response.citations.forEach(c => {
+                  if (!byDoc[c.document_id]) byDoc[c.document_id] = [];
+                  byDoc[c.document_id].push(c);
+                });
+                
+                const sourceLines = ['<hr>', '<p><strong>Sources:</strong></p>', '<ul>'];
+                let count = 0;
+                for (const [docId, items] of Object.entries(byDoc)) {
+                  if (count >= 6) break;
+                  items.sort((a, b) => (a.chunk_index || 0) - (b.chunk_index || 0));
+                  const first = items[0];
+                  const label = first.title || docId;
+                  if (first.url) {
+                    sourceLines.push(`<li>${label} — <a href="${first.url}" target="_blank">open</a></li>`);
+                  } else {
+                    sourceLines.push(`<li>${label}</li>`);
+                  }
+                  count++;
+                }
+                sourceLines.push('</ul>');
+                html += sourceLines.join('\n');
+              }
+              
               event.detail.serverResponse = '<div class="answer-box">' + html + '</div>';
             } else {
               event.detail.serverResponse = '<div class="answer-box"><p>Error: ' + (response.error || 'Unknown error') + '</p></div>';
