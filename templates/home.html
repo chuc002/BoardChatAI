@@ -21,6 +21,10 @@
       .answer-box ul { margin: 10px 0; padding-left: 20px; }
       .answer-box li { margin: 5px 0; }
       .loading { color: #666; font-style: italic; }
+      .docs-list { background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 10px 0; }
+      .doc-item { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; border: 1px solid #ddd; }
+      .doc-item button { margin-left: 10px; background: #dc3545; font-size: 12px; padding: 4px 8px; }
+      .doc-item button:hover { background: #c82333; }
     </style>
   </head>
   <body>
@@ -34,7 +38,13 @@
     </form>
     <pre id="upres"></pre>
 
-    <h3>2) Ask a question</h3>
+    <h3>2) Manage documents</h3>
+    <div class="row">
+      <button hx-get="/docs" hx-target="#docs">Refresh Documents</button>
+    </div>
+    <div id="docs"></div>
+
+    <h3>3) Ask a question</h3>
     <form class="row" hx-post="/chat" hx-target="#answer" hx-trigger="submit">
       <input type="text" name="q" placeholder="e.g., What are the Open Times and Reserved Periods of Play?" />
       <button>Ask</button>
@@ -63,6 +73,28 @@
       document.body.addEventListener('htmx:beforeRequest', function(event) {
         if (event.target.closest('form') && event.target.closest('form').querySelector('input[name="q"]')) {
           document.getElementById('answer').innerHTML = '<div class="answer-box">Thinking...</div>';
+        }
+      });
+
+      // Handle documents list rendering
+      document.body.addEventListener('htmx:beforeSwap', function(event) {
+        if (event.target.id === 'docs') {
+          try {
+            const json = JSON.parse(event.detail.xhr.responseText);
+            if (json.ok && json.docs) {
+              const rows = (json.docs||[]).map(d => `
+                <div class="doc-item">
+                  📄 <strong>${d.title||d.filename||d.id}</strong> — ${d.status}
+                  ${d.download?`· <a href="${d.download}" target="_blank">open</a>`:''}
+                  · <button hx-post="/docs/delete" hx-target="#docs" hx-vals='{"id":"${d.id}"}' hx-swap="outerHTML">Delete</button>
+                </div>`).join('');
+              event.detail.serverResponse = '<div class="docs-list">' + (rows || '<p>No documents uploaded yet.</p>') + '</div>';
+            } else {
+              event.detail.serverResponse = '<div class="docs-list"><p>Error loading documents</p></div>';
+            }
+          } catch (e) {
+            event.detail.serverResponse = '<div class="docs-list"><p>Error parsing documents response</p></div>';
+          }
         }
       });
     </script>

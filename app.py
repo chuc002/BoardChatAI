@@ -53,6 +53,24 @@ def snippet():
         return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "snippet": row[0]["content"]})
 
+@app.post("/docs/delete")
+def delete_doc():
+    doc_id = (request.form.get("id") if request.form else None) or (request.json.get("id") if request.is_json else None)
+    if not doc_id:
+        return jsonify({"ok": False, "error": "missing id"}), 400
+    # delete chunks first
+    supa.table("doc_chunks").delete().eq("document_id", doc_id).execute()
+    # get storage path to remove file
+    doc = supa.table("documents").select("storage_path").eq("id", doc_id).limit(1).execute().data
+    if doc and doc[0].get("storage_path"):
+        try:
+            supa.storage.from_(SUPABASE_BUCKET).remove([doc[0]["storage_path"]])
+        except Exception:
+            pass
+    # delete document row
+    supa.table("documents").delete().eq("id", doc_id).execute()
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     app.run(host="0.0.0.0", port=8000, debug=True)
