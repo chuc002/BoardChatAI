@@ -4,29 +4,58 @@
     <meta charset="utf-8" />
     <title>Board Continuity MVP</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-      body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; }
-      .row { display:flex; gap:12px; align-items:center; }
-      input[type="text"]{ width: 70%; padding:8px }
-      button{ padding:8px 12px; }
-      pre{ white-space:pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px }
+      body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; }
+      .row { display:flex; gap:12px; align-items:center; margin-bottom: 20px; }
+      input[type="text"]{ width: 70%; padding:8px; border: 1px solid #ddd; border-radius: 4px; }
+      input[type="file"]{ padding:4px; }
+      button{ padding:8px 12px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+      button:hover { background: #005aa3; }
+      pre{ white-space:pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px; border: 1px solid #ddd; }
+      .answer-box { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
+      .answer-box h4 { margin-top: 0; color: #333; }
+      .answer-box a { color: #007acc; }
     </style>
   </head>
   <body>
     <h2>Forever Board Member — MVP</h2>
+    <p>Upload board documents and ask questions about their content with AI-powered citations.</p>
 
     <h3>1) Upload a document</h3>
     <form class="row" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upres">
-      <input type="file" name="file" required />
+      <input type="file" name="file" accept=".pdf" required />
       <button>Upload</button>
     </form>
     <pre id="upres"></pre>
 
     <h3>2) Ask a question</h3>
-    <form class="row" hx-post="/chat" hx-target="#answer">
-      <input type="text" name="q" placeholder="e.g., What are the Reserved Periods of Play?" />
+    <form class="row" hx-post="/chat" hx-target="#answer" hx-trigger="submit">
+      <input type="text" name="q" placeholder="e.g., What are the Open Times and Reserved Periods of Play?" />
       <button>Ask</button>
     </form>
-    <pre id="answer"></pre>
+    <div id="answer"></div>
+
+    <script>
+      // Handle markdown rendering for chat responses
+      document.body.addEventListener('htmx:afterRequest', function(event) {
+        if (event.target.id === 'answer' && event.detail.xhr.status === 200) {
+          try {
+            const response = JSON.parse(event.detail.xhr.responseText);
+            if (response.ok && response.markdown) {
+              const html = marked.parse(response.markdown);
+              event.target.innerHTML = '<div class="answer-box">' + html + '</div>';
+            } else {
+              event.target.innerHTML = '<pre>' + event.detail.xhr.responseText + '</pre>';
+            }
+          } catch (e) {
+            event.target.innerHTML = '<pre>' + event.detail.xhr.responseText + '</pre>';
+          }
+        } else if (event.target.id === 'upres') {
+          // Keep upload responses as JSON in pre tags
+          event.target.innerHTML = event.detail.xhr.responseText;
+        }
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,549 @@
+## STEP 2 — Replit: replace your files with these clean versions (v2 — persistent & polished)
+Create/overwrite the files below **exactly** as shown.
+
+### requirements.txt
+```txt
+flask
+flask-cors
+supabase
+openai
+gunicorn
+python-dotenv
+requests
+pypdf
+pdfminer.six
+tiktoken
+```
+
+### app.py
+```python
+import os
+from flask import Flask, render_template, request, jsonify
+from lib.ingest import upsert_document
+from lib.rag import answer_question_md
+from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
+
+app = Flask(__name__)
+
+# Dev identity for now (seeded already)
+ORG_ID = os.getenv("DEV_ORG_ID")
+USER_ID = os.getenv("DEV_USER_ID")
+
+@app.get("/")
+def home():
+    return render_template("home.html")
+
+@app.get("/docs")
+def docs():
+    rows = supa.table("documents").select("id,title,filename,storage_path,status,processed,created_at").eq("org_id", ORG_ID).order("created_at", desc=True).limit(200).execute().data or []
+    for r in rows:
+        if r.get("storage_path"):
+            r["download"] = signed_url_for(r["storage_path"], expires_in=3600)
+    return jsonify({"ok": True, "docs": rows})
+
+@app.post("/upload")
+def upload():
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "no file"}), 400
+    b = f.read()
+    doc, n = upsert_document(ORG_ID, USER_ID, f.filename, b, f.mimetype)
+    return jsonify({"ok": True, "document_id": doc["id"], "chunks": n})
+
+@app.post("/chat")
+def chat():
+    q = (request.form.get("q") if request.form else None) or (request.json.get("q") if request.is_json else None)
+    if not q:
+        return jsonify({"ok": False, "error": "missing q"}), 400
+    md, cites = answer_question_md(ORG_ID, q)
+    return jsonify({"ok": True, "markdown": md, "citations": cites})
+
+@app.get("/snippet")
+def snippet():
+    doc_id = request.args.get("doc")
+    chunk = request.args.get("chunk")
+    if not doc_id:
+        return jsonify({"ok": False, "error": "missing doc"}), 400
+    sel = supa.table("doc_chunks").select("content,chunk_index,document_id").eq("document_id", doc_id)
+    if chunk is not None:
+        sel = sel.eq("chunk_index", int(chunk))
+    row = sel.limit(1).execute().data
+    if not row:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "snippet": row[0]["content"]})
+
+if __name__ == "__main__":
+    print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
+    app.run(host="0.0.0.0", port=8000, debug=True)
+```python
+import os
+from flask import Flask, render_template, request, jsonify
+from lib.ingest import upsert_document
+from lib.rag import answer_question
+
+app = Flask(__name__)
+
+# Dev identity for now (seeded already)
+ORG_ID = os.getenv("DEV_ORG_ID")
+USER_ID = os.getenv("DEV_USER_ID")
+
+@app.get("/")
+def home():
+    return render_template("home.html")
+
+@app.post("/upload")
+def upload():
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "no file"}), 400
+    b = f.read()
+    doc, n = upsert_document(ORG_ID, USER_ID, f.filename, b, f.mimetype)
+    return jsonify({"ok": True, "document_id": doc["id"], "chunks": n})
+
+@app.post("/chat")
+def chat():
+    q = request.form.get("q") or request.json.get("q")
+    if not q:
+        return jsonify({"ok": False, "error": "missing q"}), 400
+    ans = answer_question(ORG_ID, q)
+    return jsonify({"ok": True, "answer": ans})
+
+if __name__ == "__main__":
+    print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
+    app.run(host="0.0.0.0", port=8000, debug=True)
+```
+
+### lib/supa.py
+```python
+import os
+from supabase import create_client, Client
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "bc_documents")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE")
+
+supa: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+
+# Helper to create a time-limited download URL for a stored file
+
+def signed_url_for(path: str, expires_in: int = 3600) -> str | None:
+    try:
+        res = supa.storage.from_(SUPABASE_BUCKET).create_signed_url(path, expires_in)
+        return res.get("signedURL") or res.get("signed_url")
+    except Exception:
+        return None
+
+__all__ = ["supa", "SUPABASE_BUCKET", "signed_url_for"]
+```python
+import os
+from supabase import create_client, Client
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "bc_documents")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE")
+
+supa: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+
+__all__ = ["supa", "SUPABASE_BUCKET"]
+```
+
+### lib/ingest.py
+```python
+import hashlib, io
+from typing import Tuple
+from pypdf import PdfReader
+from pdfminer.high_level import extract_text
+from openai import OpenAI
+from lib.supa import supa, SUPABASE_BUCKET
+import tiktoken
+
+client = OpenAI()
+
+def _sha256_bytes(b: bytes) -> str:
+    h = hashlib.sha256(); h.update(b); return h.hexdigest()
+
+# --- PDF text extraction ---
+
+def extract_text_from_pdf(file_bytes: bytes) -> str:
+    # Try PyPDF first
+    try:
+        r = PdfReader(io.BytesIO(file_bytes))
+        out = []
+        for p in r.pages:
+            out.append(p.extract_text() or "")
+        text = "\n".join(out)
+        if len(text.strip()) > 50:
+            return text
+    except Exception:
+        pass
+    # Fallback to pdfminer
+    try:
+        return extract_text(io.BytesIO(file_bytes)) or ""
+    except Exception:
+        return ""
+
+# --- Chunking ---
+
+def smart_chunks(text: str, target_tokens: int = 900, overlap: int = 150):
+    enc = tiktoken.get_encoding("cl100k_base")
+    toks = enc.encode(text)
+    if not toks:
+        return []
+    step = max(1, target_tokens - overlap)
+    chunks = []
+    for i in range(0, len(toks), step):
+        seg = toks[i:i + target_tokens]
+        chunks.append(enc.decode(seg))
+    return chunks
+
+# --- Embeddings ---
+
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    from os import getenv
+    model = getenv("EMBED_MODEL", "text-embedding-3-small")  # 1536-dim
+    resp = client.embeddings.create(model=model, input=texts)
+    return [d.embedding for d in resp.data]
+
+# --- Ingest pipeline ---
+
+def upsert_document(org_id: str, user_id: str, filename: str, file_bytes: bytes, mime_type: str) -> Tuple[dict, int]:
+    sha = _sha256_bytes(file_bytes)
+    storage_path = f"{org_id}/{sha}/{filename}"
+
+    # Upload to Storage (idempotent)
+    supa.storage.from_(SUPABASE_BUCKET).upload(storage_path, file_bytes, {
+        "content-type": mime_type,
+        "x-upsert": "true"
+    })
+
+    # Create/insert document row (compat fields included)
+    doc = supa.table("documents").insert({
+        "org_id": org_id,
+        "created_by": user_id,
+        "title": filename,
+        "name": filename,
+        "filename": filename,
+        "storage_path": storage_path,
+        "file_path": storage_path,
+        "sha256": sha,
+        "mime_type": mime_type,
+        "size_bytes": len(file_bytes),
+        "status": "processing",
+        "processed": False,
+        "processing_error": None
+    }).execute().data[0]
+
+    # Extract text
+    text = extract_text_from_pdf(file_bytes)
+    if len(text.strip()) < 50:
+        # Likely a scan; mark error but keep row
+        supa.table("documents").update({
+            "status": "error",
+            "processed": False,
+            "processing_error": "Scanned PDF not supported in MVP"
+        }).eq("id", doc["id"]).execute()
+        return doc, 0
+
+    # Chunk + embed
+    chunks = smart_chunks(text, target_tokens=900, overlap=150)
+    embeddings = embed_texts(chunks)
+
+    rows = []
+    for i, (c, e) in enumerate(zip(chunks, embeddings)):
+        rows.append({
+            "org_id": org_id,
+            "document_id": doc["id"],
+            "chunk_index": i,
+            "content": c,
+            "token_count": len(c),
+            "embedding": e
+        })
+
+    if rows:
+        supa.table("doc_chunks").insert(rows).execute()
+        supa.table("documents").update({"status": "ready", "processed": True}).eq("id", doc["id"]).execute()
+    else:
+        supa.table("documents").update({"status": "error", "processed": False, "processing_error": "no chunks"}).eq("id", doc["id"]).execute()
+
+    return doc, len(rows)
+```
+
+### lib/rag.py
+```python
+from openai import OpenAI
+from lib.supa import supa, signed_url_for
+import os
+
+client = OpenAI()
+
+SYSTEM_PROMPT = (
+    "You are Forever Board Member. Answer ONLY from the provided excerpts. "
+    "Every claim must include an inline citation like [Doc:{document_id}#Chunk:{chunk_index}]. "
+    "Prefer table rows when present. If insufficient, say so and ask for more sources."
+)
+
+# Vector search via RPC + hybrid keyword fallback
+
+def _vector_search(org_id: str, query: str, k: int = 40):
+    emb_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+    emb = client.embeddings.create(model=emb_model, input=query).data[0].embedding
+    try:
+        rows = supa.rpc("match_chunks", {
+            "query_embedding": emb,
+            "match_count": k,
+            "org": str(org_id)
+        }).execute().data or []
+    except Exception:
+        rows = []
+    return rows
+
+
+def _keyword_fallback(org_id: str, q: str, limit: int = 40):
+    terms = [q, "reserved", "Open Times", "Primary Golfers", "Ladies", "Juniors", "dues", "assessment", "bylaws"]
+    seen = set(); out = []
+    for t in terms:
+        resp = supa.table("doc_chunks").select("document_id,chunk_index,content").eq("org_id", org_id).ilike("content", f"%{t}%").limit(limit).execute().data
+        for r in resp or []:
+            key = (r["document_id"], r["chunk_index"])
+            if key in seen: continue
+            seen.add(key); out.append(r)
+    return out
+
+
+def _doc_title_and_link(doc_id: str):
+    d = supa.table("documents").select("title,storage_path").eq("id", doc_id).limit(1).execute().data
+    if not d: return (None, None)
+    title = d[0].get("title") or "Document"
+    link = signed_url_for(d[0].get("storage_path") or "")
+    return (title, link)
+
+
+def answer_question_md(org_id: str, question: str, chat_model: str = "gpt-4o"):
+    rows = _vector_search(org_id, question, k=40)
+    if len(rows) < 3:
+        rows = rows + _keyword_fallback(org_id, question, limit=40)
+
+    if not rows:
+        return ("Insufficient sources found. Please upload meeting minutes, bylaws, or project files.", [])
+
+    excerpts = []
+    cite_meta = []
+    for r in rows[:40]:
+        doc_id = r.get('document_id'); chunk_idx = r.get('chunk_index'); content = r.get('content')
+        if not (doc_id and content is not None):
+            continue
+        title, link = _doc_title_and_link(doc_id)
+        cite_meta.append({"document_id": doc_id, "chunk_index": chunk_idx, "title": title, "url": link})
+        cid = f"[Doc:{doc_id}#Chunk:{chunk_idx}]"
+        excerpts.append(f"{cid} {content}")
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"QUESTION: {question}
+
+EXCERPTS:
+" + "
+".join(excerpts)}
+    ]
+    resp = client.chat.completions.create(model=chat_model, messages=messages, temperature=0.2)
+    answer = resp.choices[0].message.content
+
+    # Build nice markdown footer of sources
+    lines = [answer, "
+
+---
+**Sources**:" ]
+    seen = set()
+    for c in cite_meta[:10]:
+        key = (c["document_id"], c.get("chunk_index"))
+        if key in seen: continue
+        seen.add(key)
+        label = c.get("title") or c["document_id"]
+        if c.get("url"):
+            lines.append(f"- {label} (chunk {c.get('chunk_index')}) — [open]({c['url']})")
+        else:
+            lines.append(f"- {label} (chunk {c.get('chunk_index')})")
+    md = "
+".join(lines)
+    return (md, cite_meta)
+```
+python
+from openai import OpenAI
+from lib.supa import supa
+import os
+
+client = OpenAI()
+
+SYSTEM_PROMPT = (
+    "You are Forever Board Member. Answer ONLY from the provided excerpts. "
+    "Every claim must include an inline citation like [Doc:{document_id}#Chunk:{chunk_index}]. "
+    "Prefer table rows when present. If insufficient, say so and ask for more sources."
+)
+
+# Vector search via RPC + hybrid keyword fallback
+
+def _vector_search(org_id: str, query: str, k: int = 40):
+    emb_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+    emb = client.embeddings.create(model=emb_model, input=query).data[0].embedding
+    try:
+        rows = supa.rpc("match_chunks", {
+            "query_embedding": emb,
+            "match_count": k,
+            "org": str(org_id)
+        }).execute().data or []
+    except Exception:
+        rows = []
+    return rows
+
+
+def _keyword_fallback(org_id: str, q: str, limit: int = 40):
+    # Simple ILIKE search for tables/terms
+    terms = [q, "reserved", "Open Times", "Primary Golfers", "Ladies", "Juniors", "dues", "assessment", "bylaws"]
+    seen = set()
+    out = []
+    for t in terms:
+        resp = supa.table("doc_chunks").select("document_id,chunk_index,content").eq("org_id", org_id).ilike("content", f"%{t}%").limit(limit).execute().data
+        for r in resp or []:
+            key = (r["document_id"], r["chunk_index"])
+            if key in seen: continue
+            seen.add(key); out.append(r)
+    return out
+
+
+def answer_question(org_id: str, question: str, chat_model: str = "gpt-4o") -> str:
+    rows = _vector_search(org_id, question, k=40)
+    if len(rows) < 3:
+        rows = rows + _keyword_fallback(org_id, question, limit=40)
+
+    if not rows:
+        return "Insufficient sources found. Please upload meeting minutes, bylaws, or project files."
+
+    excerpts = []
+    for r in rows[:40]:
+        # Support both RPC row shape and table row shape
+        doc_id = r.get('document_id')
+        chunk_idx = r.get('chunk_index')
+        content = r.get('content')
+        if not (doc_id and content is not None):
+            continue
+        cid = f"[Doc:{doc_id}#Chunk:{chunk_idx}]"
+        excerpts.append(f"{cid} {content}")
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"QUESTION: {question}\n\nEXCERPTS:\n" + "\n".join(excerpts)}
+    ]
+
+    resp = client.chat.completions.create(model=chat_model, messages=messages, temperature=0.2)
+    return resp.choices[0].message.content
+```
+
+### templates/home.html
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Forever Board Member — MVP</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; }
+      .row { display:flex; gap:12px; align-items:center; }
+      input[type="text"]{ width: 70%; padding:8px }
+      button{ padding:8px 12px; }
+      .card{ background:#fff; border:1px solid #eee; border-radius:10px; padding:14px; margin:12px 0 }
+    </style>
+  </head>
+  <body>
+    <h2>Forever Board Member — MVP</h2>
+
+    <div class="card">
+      <h3>1) Upload a document</h3>
+      <form class="row" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upres">
+        <input type="file" name="file" required />
+        <button>Upload</button>
+      </form>
+      <pre id="upres"></pre>
+    </div>
+
+    <div class="card">
+      <h3>2) Ask a question</h3>
+      <form class="row" hx-post="/chat" hx-target="#answer" hx-trigger="submit">
+        <input type="text" name="q" placeholder="e.g., What are the Reserved Periods of Play?" />
+        <button>Ask</button>
+      </form>
+      <div id="answer" class="card"></div>
+    </div>
+
+    <div class="card">
+      <h3>Your documents</h3>
+      <button hx-get="/docs" hx-target="#docs">Refresh</button>
+      <div id="docs"></div>
+    </div>
+
+    <script>
+      // Render markdown from /chat nicely
+      document.body.addEventListener('htmx:afterOnLoad', (e) => {
+        if (e.detail && e.detail.elt && e.detail.elt.id === 'answer') {
+          try {
+            const json = JSON.parse(e.detail.xhr.responseText);
+            if (json.ok) {
+              e.detail.elt.innerHTML = marked.parse(json.markdown || json.answer || '');
+            }
+          } catch(_) {}
+        }
+        if (e.detail && e.detail.elt && e.detail.elt.id === 'docs') {
+          try {
+            const json = JSON.parse(e.detail.xhr.responseText);
+            if (json.ok) {
+              const rows = (json.docs||[]).map(d => `<div>📄 <strong>${d.title||d.filename||d.id}</strong> — ${d.status} ${d.download?`· <a href="${d.download}" target="_blank">open</a>`:''}</div>`).join('');
+              e.detail.elt.innerHTML = rows || 'No docs yet.';
+            }
+          } catch(_) {}
+        }
+      });
+    </script>
+  </body>
+</html>
+```
+html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Board Continuity MVP</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; }
+      .row { display:flex; gap:12px; align-items:center; }
+      input[type="text"]{ width: 70%; padding:8px }
+      button{ padding:8px 12px; }
+      pre{ white-space:pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px }
+    </style>
+  </head>
+  <body>
+    <h2>Forever Board Member — MVP</h2>
+
+    <h3>1) Upload a document</h3>
+    <form class="row" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upres">
+      <input type="file" name="file" required />
+      <button>Upload</button>
+    </form>
+    <pre id="upres"></pre>
+
+    <h3>2) Ask a question</h3>
+    <form class="row" hx-post="/chat" hx-target="#answer">
+      <input type="text" name="q" placeholder="e.g., What are the Reserved Periods of Play?" />
+      <button>Ask</button>
+    </form>
+    <pre id="answer"></pre>
+  </body>
+</html>
+```
