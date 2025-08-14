@@ -40,8 +40,9 @@ Preferred communication style: Simple, everyday language.
 ### Document Processing Pipeline
 - **PDF Extraction**: PyPDF2 for text extraction with page-level granularity
 - **Text Chunking**: Intelligent chunking with overlap preservation for context continuity
-- **Embedding Generation**: OpenAI text-embedding-3-large for high-quality vector representations
+- **Embedding Generation**: OpenAI text-embedding-3-small (1536-dim) for high-quality vector representations
 - **Storage**: Chunked content stored with metadata linking to source documents and page numbers
+- **De-duplication**: SHA256-based file deduplication prevents re-processing identical documents
 
 ### AI Integration
 - **Language Model**: OpenAI GPT-4o for chat responses and document analysis
