@@ -41,6 +41,7 @@
     <h3>2) Manage documents</h3>
     <div class="row">
       <button hx-get="/docs" hx-target="#docs">Refresh Documents</button>
+      <button hx-post="/docs/delete_all" hx-target="#docs" hx-confirm="Delete ALL documents? This cannot be undone." style="background: #dc3545;">Delete All</button>
     </div>
     <div id="docs"></div>
 

@@ -58,18 +58,29 @@ def delete_doc():
     doc_id = (request.form.get("id") if request.form else None) or (request.json.get("id") if request.is_json else None)
     if not doc_id:
         return jsonify({"ok": False, "error": "missing id"}), 400
-    # delete chunks first
     supa.table("doc_chunks").delete().eq("document_id", doc_id).execute()
-    # get storage path to remove file
     doc = supa.table("documents").select("storage_path").eq("id", doc_id).limit(1).execute().data
     if doc and doc[0].get("storage_path"):
-        try:
-            supa.storage.from_(SUPABASE_BUCKET).remove([doc[0]["storage_path"]])
-        except Exception:
-            pass
-    # delete document row
+        try: supa.storage.from_(SUPABASE_BUCKET).remove([doc[0]["storage_path"]])
+        except Exception: pass
     supa.table("documents").delete().eq("id", doc_id).execute()
-    return jsonify({"ok": True})
+    # return fresh list
+    rows = supa.table("documents").select("id,title,filename,storage_path,status,processed,created_at").eq("org_id", ORG_ID).order("created_at", desc=True).limit(200).execute().data or []
+    for r in rows:
+        if r.get("storage_path"):
+            r["download"] = signed_url_for(r["storage_path"], expires_in=3600)
+    return jsonify({"ok": True, "docs": rows})
+
+@app.post("/docs/delete_all")
+def delete_all():
+    docs = supa.table("documents").select("storage_path").eq("org_id", ORG_ID).execute().data or []
+    paths = [d["storage_path"] for d in docs if d.get("storage_path")]
+    if paths:
+        try: supa.storage.from_(SUPABASE_BUCKET).remove(paths)
+        except Exception: pass
+    supa.table("doc_chunks").delete().eq("org_id", ORG_ID).execute()
+    supa.table("documents").delete().eq("org_id", ORG_ID).execute()
+    return jsonify({"ok": True, "docs": []})
 
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
