@@ -56,21 +56,28 @@ def answer_question_md(org_id: str, question: str, chat_model: str = "gpt-4o") -
     if not rows:
         return ("Insufficient sources found. Please upload meeting minutes, bylaws, or project files.", [])
 
-    # Limit to maximum 15 chunks to avoid token limit
-    rows = rows[:15]
-    
     excerpts = []
     cite_meta = []
-    for r in rows:
+    seen_pairs = set()
+
+    for r in rows[:80]:  # allow more, we'll dedupe
         doc_id = r.get('document_id'); chunk_idx = r.get('chunk_index'); content = r.get('content')
-        if not (doc_id and content is not None):
+        if not (doc_id and content):
             continue
+        key = (doc_id, chunk_idx)
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
         title, link = _doc_title_and_link(doc_id)
         cite_meta.append({"document_id": doc_id, "chunk_index": chunk_idx, "title": title, "url": link})
         cid = f"[Doc:{doc_id}#Chunk:{chunk_idx}]"
         # Truncate very long chunks to save tokens
         truncated_content = content[:800] + "..." if len(content) > 800 else content
         excerpts.append(f"{cid} {truncated_content}")
+    
+    # Limit to maximum 15 chunks after deduplication to avoid token limit
+    excerpts = excerpts[:15]
+    cite_meta = cite_meta[:15]
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -79,17 +86,22 @@ def answer_question_md(org_id: str, question: str, chat_model: str = "gpt-4o") -
     resp = client.chat.completions.create(model=chat_model, messages=messages, temperature=0.2)
     answer = resp.choices[0].message.content or "No response generated."
 
-    # Build nice markdown footer of sources
-    lines = [answer, "\n\n---\n**Sources**:" ]
-    seen = set()
-    for c in cite_meta[:10]:
-        key = (c["document_id"], c.get("chunk_index"))
-        if key in seen: continue
-        seen.add(key)
-        label = c.get("title") or c["document_id"]
-        if c.get("url"):
-            lines.append(f"- {label} (chunk {c.get('chunk_index')}) — [open]({c['url']})")
+    # Build nice markdown footer of sources (collapse by document, keep up to 6 docs)
+    lines = [answer, "\n\n---\n**Sources**:"]
+    by_doc = {}
+    for c in cite_meta:
+        by_doc.setdefault(c["document_id"], []).append(c)
+
+    count = 0
+    for doc_id, items in by_doc.items():
+        if count >= 6: break
+        items.sort(key=lambda x: (x.get("chunk_index") or 0))
+        first = items[0]
+        label = first.get("title") or doc_id
+        if first.get("url"):
+            lines.append(f"- {label} — [open]({first['url']})")
         else:
-            lines.append(f"- {label} (chunk {c.get('chunk_index')})")
+            lines.append(f"- {label}")
+        count += 1
     md = "\n".join(lines)
     return (md, cite_meta)

@@ -46,9 +46,10 @@ Preferred communication style: Simple, everyday language.
 
 ### AI Integration
 - **Language Model**: OpenAI GPT-4o for chat responses and document analysis
-- **Retrieval System**: Vector similarity search to find relevant document chunks
-- **Context Assembly**: Multi-chunk context building with document and page citations
-- **Response Generation**: Contextual responses with source attribution and citation links
+- **Retrieval System**: Vector similarity search to find relevant document chunks with hybrid keyword fallback
+- **Context Assembly**: Multi-chunk context building with de-duplicated citations
+- **Response Generation**: Contextual responses with clean source attribution and citation links
+- **Citation Management**: De-duplicated sources grouped by document with maximum 6 sources displayed
 
 ## External Dependencies
 
