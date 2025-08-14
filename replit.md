@@ -21,15 +21,16 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
 - **Authentication**: Flask-Login for session management with custom User model
-- **File Handling**: Werkzeug secure filename processing with 16MB upload limits
+- **File Handling**: Werkzeug secure filename processing with 16MB upload limits, multi-file support
 - **Architecture Pattern**: Service layer pattern separating business logic from routes
 - **Error Handling**: Comprehensive logging and user-friendly error messages
+- **Chat History**: Persistent Q&A storage with full citation metadata preservation
 
 ### Data Storage Solutions
 - **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history
 - **Document Storage**: Local file system with secure filename handling
 - **Vector Storage**: Embedded within Supabase for semantic search capabilities
-- **Data Models**: Document, DocumentChunk, and ChatMessage entities with org_id/created_by relationships
+- **Data Models**: Document, DocumentChunk, and QA_History entities with org_id/created_by relationships
 
 ### Authentication and Authorization
 - **Strategy**: Development mode using environment variables (DEV_ORG_ID and DEV_USER_ID)

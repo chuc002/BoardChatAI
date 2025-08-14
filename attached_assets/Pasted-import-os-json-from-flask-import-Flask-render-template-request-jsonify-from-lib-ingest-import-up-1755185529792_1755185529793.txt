@@ -80,6 +80,4 @@ def history():
     rows = supa.table("qa_history").select("*").eq("org_id", ORG_ID).order("created_at", desc=True).limit(50).execute().data or []
     return jsonify({"ok": True, "items": rows})
 
-if __name__ == "__main__":
-    print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
-    app.run(host="0.0.0.0", port=8000, debug=True)
+if __na

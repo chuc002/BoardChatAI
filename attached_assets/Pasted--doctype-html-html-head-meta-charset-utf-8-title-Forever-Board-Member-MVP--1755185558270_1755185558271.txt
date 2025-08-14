@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Forever Board Member — MVP</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 950px; margin: 32px auto; color:#111 }
+      h2 { margin-bottom: 4px }
+      .muted { color:#666; font-size:14px }
+      .row { display:flex; gap:12px; align-items:center }
+      button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#0ea5e9; color:#fff; cursor:pointer }
+      button.secondary { background:#f3f4f6; color:#111; border:1px solid #e5e7eb }
+      .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:14px 0 }
+      .doc-row { padding:8px 10px; border:1px solid #eee; border-radius:8px; margin:6px 0; background:#fafafa }
+      .drop { border:2px dashed #cbd5e1; padding:18px; border-radius:12px; text-align:center; background:#f8fafc }
+      #answer { background:#fff; }
+      ol { padding-left: 22px }
+      sup a { text-decoration:none }
+      .small { font-size: 13px; color:#4b5563 }
+    </style>
+  </head>
+  <body>
+    <h2>Forever Board Member — MVP</h2>
+    <div class="muted">Upload board documents and ask questions about their content with AI-powered citations.</div>
+
+    <div class="card">
+      <h3>1) Upload documents</h3>
+      <div id="drop" class="drop">Drag & drop PDFs here (or use the file picker)</div>
+      <form id="upform" class="row" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upres" hx-swap="afterend">
+        <input id="file" type="file" name="file" multiple accept="application/pdf" />
+        <button>Upload</button>
+      </form>
+      <div id="upres" class="small"></div>
+      <script>
+        // basic drag&drop to the hidden input
+        const dz = document.getElementById('drop');
+        const fi = document.getElementById('file');
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = '#eef6ff'; });
+        dz.addEventListener('dragleave', e => { dz.style.background = '#f8fafc'; });
+        dz.addEventListener('drop', e => {
+          e.preventDefault(); dz.style.background = '#f8fafc';
+          fi.files = e.dataTransfer.files;
+        });
+      </script>
+    </div>
+
+    <div class="card">
+      <h3>2) Manage documents</h3>
+      <div class="row">
+        <button class="secondary" hx-get="/docs" hx-target="#docs">Refresh
