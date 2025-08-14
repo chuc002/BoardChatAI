@@ -38,7 +38,7 @@
 
     <script>
       // Handle markdown rendering for chat responses
-      document.body.addEventListener('htmx:afterRequest', function(event) {
+      document.body.addEventListener('htmx:afterSwap', function(event) {
         if (event.target.id === 'answer' && event.detail.xhr.status === 200) {
           try {
             const response = JSON.parse(event.detail.xhr.responseText);
