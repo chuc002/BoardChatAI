@@ -1,62 +1,9 @@
-import hashlib, io
-from typing import Tuple
-from pypdf import PdfReader
-from pdfminer.high_level import extract_text
-from openai import OpenAI
-from lib.supa import supa, SUPABASE_BUCKET
-import tiktoken
-
-client = OpenAI()
-
-def _sha256_bytes(b: bytes) -> str:
-    h = hashlib.sha256(); h.update(b); return h.hexdigest()
-
-# --- PDF text extraction ---
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    # Try PyPDF first
-    try:
-        r = PdfReader(io.BytesIO(file_bytes))
-        out = []
-        for p in r.pages:
-            out.append(p.extract_text() or "")
-        text = "\n".join(out)
-        if len(text.strip()) > 50:
-            return text
-    except Exception:
-        pass
-    # Fallback to pdfminer
-    try:
-        return extract_text(io.BytesIO(file_bytes)) or ""
-    except Exception:
-        return ""
-
-# --- Chunking ---
-def smart_chunks(text: str, target_tokens: int = 900, overlap: int = 150):
-    enc = tiktoken.get_encoding("cl100k_base")
-    toks = enc.encode(text)
-    if not toks:
-        return []
-    step = max(1, target_tokens - overlap)
-    chunks = []
-    for i in range(0, len(toks), step):
-        seg = toks[i:i + target_tokens]
-        chunks.append(enc.decode(seg))
-    return chunks
-
-# --- Embeddings ---
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    from os import getenv
-    model = getenv("EMBED_MODEL", "text-embedding-3-small")  # 1536-dim
-    resp = client.embeddings.create(model=model, input=texts)
-    return [d.embedding for d in resp.data]
-
 # --- Ingest pipeline (with pre-summaries) ---
 def _summarize_chunk(text: str, doc_id: str, idx: int) -> str:
     """
     Compress a chunk to a compact, factual note ending with its citation.
     We cap length so it stays ~60–100 tokens.
     """
-    import os
     from openai import OpenAI
     client = OpenAI()
     prompt = (

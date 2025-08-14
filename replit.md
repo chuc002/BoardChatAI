@@ -42,7 +42,8 @@ Preferred communication style: Simple, everyday language.
 - **PDF Extraction**: PyPDF2 for text extraction with page-level granularity
 - **Text Chunking**: Intelligent chunking with overlap preservation for context continuity
 - **Embedding Generation**: OpenAI text-embedding-3-small (1536-dim) for high-quality vector representations
-- **Storage**: Chunked content stored with metadata linking to source documents and page numbers
+- **Chunk Summarization**: Pre-computed summaries using GPT-4o-mini for efficient retrieval
+- **Storage**: Chunked content stored with summaries and metadata linking to source documents
 - **De-duplication**: SHA256-based file deduplication prevents re-processing identical documents
 
 ### AI Integration

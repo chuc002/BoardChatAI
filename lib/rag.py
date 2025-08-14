@@ -27,7 +27,7 @@ def _keyword_fallback(org_id: str, q: str, limit: int = 40):
     terms = [q, "reserved", "Open Times", "Primary Golfers", "Ladies", "Juniors", "dues", "assessment", "bylaws"]
     seen = set(); out = []
     for t in terms:
-        resp = supa.table("doc_chunks").select("document_id,chunk_index,content").eq("org_id", org_id).ilike("content", f"%{t}%").limit(limit).execute().data
+        resp = supa.table("doc_chunks").select("document_id,chunk_index,content,summary").eq("org_id", org_id).ilike("content", f"%{t}%").limit(limit).execute().data
         for r in resp or []:
             key = (r["document_id"], r["chunk_index"])
             if key in seen: continue
@@ -61,22 +61,27 @@ def answer_question_md(org_id: str, question: str, chat_model: str = "gpt-4o"):
     MAX_TOKENS = 25000  # Leave buffer for response tokens
     MAX_CHUNK_LENGTH = 1500  # Limit individual chunk size
 
-    # Process chunks with token limit awareness
+    # Process chunks with token limit awareness - prefer summaries when available
     for r in rows[:40]:  # Reduced from 80
-        doc_id = r.get('document_id'); chunk_idx = r.get('chunk_index'); content = r.get('content')
-        if not (doc_id and content): continue
+        doc_id = r.get('document_id'); chunk_idx = r.get('chunk_index')
+        content = r.get('content'); summary = r.get('summary')
+        if not (doc_id and (content or summary)): continue
         key = (doc_id, chunk_idx)
         if key in seen_pairs: continue
         seen_pairs.add(key)
 
-        # Truncate content if too long
-        if len(content) > MAX_CHUNK_LENGTH:
-            content = content[:MAX_CHUNK_LENGTH] + "..."
-
         title, link = _doc_title_and_link(doc_id)
         cite_meta.append({"document_id": doc_id, "chunk_index": chunk_idx, "title": title, "url": link})
         cid = f"[Doc:{doc_id}#Chunk:{chunk_idx}]"
-        excerpt = f"{cid} {content}"
+        
+        # Use pre-computed summary if available (much more token-efficient)
+        if summary and len(summary.strip()) > 20:
+            text_content = summary
+        else:
+            # Fallback to truncated content
+            text_content = content[:MAX_CHUNK_LENGTH] + "..." if len(content) > MAX_CHUNK_LENGTH else content
+        
+        excerpt = f"{cid} {text_content}"
         
         # Check if adding this excerpt would exceed token limit
         excerpt_tokens = _estimate_tokens(excerpt)
