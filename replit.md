@@ -47,11 +47,12 @@ Preferred communication style: Simple, everyday language.
 - **De-duplication**: SHA256-based file deduplication prevents re-processing identical documents
 
 ### AI Integration
-- **Language Model**: OpenAI GPT-4o for chat responses and document analysis
-- **Retrieval System**: Vector similarity search to find relevant document chunks with hybrid keyword fallback
-- **Context Assembly**: Multi-chunk context building with de-duplicated citations
-- **Response Generation**: Contextual responses with clean source attribution and citation links
-- **Citation Management**: De-duplicated sources grouped by document with maximum 6 sources displayed
+- **Language Model**: OpenAI GPT-4o for chat responses with automatic fallback to GPT-4o-mini
+- **Token Management**: Strict token budgeting with configurable limits (2400 summary tokens, 4800 final tokens)
+- **Retrieval System**: Vector similarity search with hybrid keyword fallback using pre-computed summaries
+- **Context Assembly**: Summary-first approach with fallback to truncated content for token efficiency
+- **Response Generation**: Retry logic with exponential backoff and automatic model downgrading
+- **Citation Management**: De-duplicated sources with document titles and download links
 
 ## External Dependencies
 
