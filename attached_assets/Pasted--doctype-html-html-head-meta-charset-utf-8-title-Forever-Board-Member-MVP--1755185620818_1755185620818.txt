@@ -73,7 +73,7 @@
     <script>
       function renderAnswer(json){
         let text = (json.markdown || json.answer || '');
-        // strip any backend "Sources" block if present
+        // strip any backend “Sources” block if present
         text = text.replace(/\n-{3,}\n\*\*Sources\*\*:[\s\S]*$/,'').trim();
 
         // Convert [Doc:..#Chunk:..] to footnote numbers linking to sources below

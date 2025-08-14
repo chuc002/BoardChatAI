@@ -13,10 +13,10 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework**: Traditional server-rendered Flask templates with Bootstrap 5 dark theme
-- **JavaScript Enhancement**: HTMX for dynamic interactions, custom JavaScript for chat and upload functionality
-- **UI Components**: Responsive design with dashboard, chat interface, authentication pages, and document management
-- **Styling**: Bootstrap-based with custom CSS for chat bubbles, citations, and enhanced UX elements
+- **Framework**: Traditional server-rendered Flask templates with modern card-based design
+- **JavaScript Enhancement**: HTMX for dynamic interactions, drag-and-drop file upload functionality
+- **UI Components**: Card-based layout with drag-drop upload, document management, chat interface, and history panel
+- **Styling**: Clean modern design with custom CSS for cards, citations, and interactive elements
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
