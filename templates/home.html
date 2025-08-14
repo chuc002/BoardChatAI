@@ -13,9 +13,14 @@
       button{ padding:8px 12px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; }
       button:hover { background: #005aa3; }
       pre{ white-space:pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px; border: 1px solid #ddd; }
-      .answer-box { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
+      .answer-box { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; line-height: 1.6; }
       .answer-box h4 { margin-top: 0; color: #333; }
-      .answer-box a { color: #007acc; }
+      .answer-box a { color: #007acc; text-decoration: none; }
+      .answer-box a:hover { text-decoration: underline; }
+      .answer-box hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+      .answer-box ul { margin: 10px 0; padding-left: 20px; }
+      .answer-box li { margin: 5px 0; }
+      .loading { color: #666; font-style: italic; }
     </style>
   </head>
   <body>
@@ -38,22 +43,26 @@
 
     <script>
       // Handle markdown rendering for chat responses
-      document.body.addEventListener('htmx:afterSwap', function(event) {
-        if (event.target.id === 'answer' && event.detail.xhr.status === 200) {
+      document.body.addEventListener('htmx:beforeSwap', function(event) {
+        if (event.target.id === 'answer') {
           try {
             const response = JSON.parse(event.detail.xhr.responseText);
             if (response.ok && response.markdown) {
               const html = marked.parse(response.markdown);
-              event.target.innerHTML = '<div class="answer-box">' + html + '</div>';
+              event.detail.serverResponse = '<div class="answer-box">' + html + '</div>';
             } else {
-              event.target.innerHTML = '<pre>' + event.detail.xhr.responseText + '</pre>';
+              event.detail.serverResponse = '<div class="answer-box"><p>Error: ' + (response.error || 'Unknown error') + '</p></div>';
             }
           } catch (e) {
-            event.target.innerHTML = '<pre>' + event.detail.xhr.responseText + '</pre>';
+            event.detail.serverResponse = '<div class="answer-box"><p>Error parsing response</p></div>';
           }
-        } else if (event.target.id === 'upres') {
-          // Keep upload responses as JSON in pre tags
-          event.target.innerHTML = event.detail.xhr.responseText;
+        }
+      });
+
+      // Clear answer when new question is submitted
+      document.body.addEventListener('htmx:beforeRequest', function(event) {
+        if (event.target.closest('form') && event.target.closest('form').querySelector('input[name="q"]')) {
+          document.getElementById('answer').innerHTML = '<div class="answer-box">Thinking...</div>';
         }
       });
     </script>
