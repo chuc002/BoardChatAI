@@ -1,0 +1,63 @@
+<script>
+  // Render markdown + numbered citations + clean Sources list
+  function renderAnswer(json){
+    let text = (json.markdown || json.answer || '');
+    // strip any backend "Sources" block if present
+    text = text.replace(/\n-{3,}\n\*\*Sources\*\*:[\s\S]*$/,'').trim();
+
+    // Map [Doc:..#Chunk:..] -> [¹] superscripts linking to sources below
+    const map = new Map(); // key = "doc#chunk" -> index
+    let idx = 1;
+    text = text.replace(/\[Doc:([a-f0-9-]+)#Chunk:(\d+)\]/g, (_, d, c) => {
+      const key = d + '#' + c;
+      if (!map.has(key)) map.set(key, idx++);
+      const n = map.get(key);
+      return `<sup><a href="#src-${d}-${c}">[${n}]</a></sup>`;
+    });
+
+    // Render main body
+    const html = marked.parse(text);
+
+    // Build deduped sources list (only for pairs actually cited)
+    const items = [];
+    const seen = new Set();
+    for (const [key, n] of map.entries()) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const [d, c] = key.split('#');
+      const meta = (json.citations||[]).find(x => x.document_id === d && String(x.chunk_index) === String(c)) || {};
+      const title = meta.title || d;
+      const url = meta.url ? `<a href="${meta.url}" target="_blank">open</a>` : '';
+      items.push(`<li id="src-${d}-${c}">[${n}] ${title} (chunk ${c}) — ${url}</li>`);
+    }
+    const sourcesHtml = items.length ? `<hr/><strong>Sources</strong><ol>${items.join('')}</ol>` : '';
+
+    const box = document.getElementById('answer');
+    box.innerHTML = html + sourcesHtml;
+  }
+
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    // Chat response
+    if (e.detail && e.detail.elt && e.detail.elt.id === 'answer') {
+      try {
+        const json = JSON.parse(e.detail.xhr.responseText);
+        if (json.ok) renderAnswer(json);
+      } catch(_) {}
+    }
+    // Docs list response
+    if (e.detail && e.detail.elt && e.detail.elt.id === 'docs') {
+      try {
+        const json = JSON.parse(e.detail.xhr.responseText);
+        if (json.ok) {
+          const rows = (json.docs||[]).map(d => `
+            <div class="doc-row">
+              📄 <strong>${d.title||d.filename||d.id}</strong> — ${d.status}
+              ${d.download?` · <a href="${d.download}" target="_blank">open</a>`:''}
+              · <button hx-post="/docs/delete" hx-target="#docs" hx-vals='{"id":"${d.id}"}' hx-swap="outerHTML">Delete</button>
+            </div>`).join('');
+          e.detail.elt.innerHTML = rows || 'No docs yet.';
+        }
+      } catch(_) {}
+    }
+  });
+</script>
