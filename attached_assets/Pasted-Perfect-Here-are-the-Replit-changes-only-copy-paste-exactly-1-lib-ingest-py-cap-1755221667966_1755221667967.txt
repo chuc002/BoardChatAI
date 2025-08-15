@@ -1,3 +1,104 @@
+Perfect. Here are the **Replit changes only** — copy/paste exactly.
+
+---
+
+# 1) `lib/ingest.py` — capture page numbers during ingest
+
+**Replace your current extraction + chunking code** with the version below.
+(It plugs into your existing `upsert_document` exactly.)
+
+```python
+# add near the top with imports if not present
+import tiktoken
+
+# --- PDF text extraction WITH PAGES ---
+def extract_pages_from_pdf(file_bytes: bytes) -> list[tuple[int, str]]:
+    """
+    Returns a list of (page_index, text) using PyPDF; falls back to pdfminer (as one page).
+    """
+    pages: list[tuple[int, str]] = []
+    # Try PyPDF first (page-accurate)
+    try:
+        r = PdfReader(io.BytesIO(file_bytes))
+        for i, p in enumerate(r.pages):
+            pages.append((i, (p.extract_text() or "")))
+        if any(t.strip() for _, t in pages):
+            return pages
+    except Exception:
+        pages = []
+
+    # Fallback: pdfminer (whole doc as page 0)
+    try:
+        whole = extract_text(io.BytesIO(file_bytes)) or ""
+        if whole.strip():
+            return [(0, whole)]
+    except Exception:
+        pass
+    return []
+
+# --- Chunking WITH page tracking ---
+def smart_chunks_by_page(pages: list[tuple[int, str]], target_tokens: int = 900, overlap: int = 150):
+    enc = tiktoken.get_encoding("cl100k_base")
+    out: list[tuple[int, str]] = []
+    for page_idx, page_text in pages:
+        toks = enc.encode(page_text or "")
+        if not toks:
+            continue
+        step = max(1, target_tokens - overlap)
+        for i in range(0, len(toks), step):
+            seg = toks[i:i + target_tokens]
+            out.append((page_idx, enc.decode(seg)))
+    return out
+```
+
+Now, inside **`upsert_document(...)`**, **replace** your current “extract/chunk/embed/insert” block with this page-aware version:
+
+```python
+    # Extract text (paged)
+    pages = extract_pages_from_pdf(file_bytes)
+    joined = "\n".join(t for _, t in pages)
+    if len(joined.strip()) < 50:
+        supa.table("documents").update({
+            "status": "error",
+            "processed": False,
+            "processing_error": "Scanned PDF not supported in MVP"
+        }).eq("id", doc["id"]).execute()
+        return doc, 0
+
+    # Chunk + embed (page-aware)
+    chunk_tuples = smart_chunks_by_page(pages, target_tokens=900, overlap=150)  # [(page_idx, text)]
+    texts = [c for _, c in chunk_tuples]
+    embeddings = embed_texts(texts)
+
+    # Pre-summarize each chunk (you already have _summarize_chunk)
+    rows = []
+    for i, ((page_idx, c), e) in enumerate(zip(chunk_tuples, embeddings)):
+        s = _summarize_chunk(c, doc["id"], i)
+        rows.append({
+            "org_id": org_id,
+            "document_id": doc["id"],
+            "chunk_index": i,
+            "page_index": page_idx,          # <-- store page index
+            "content": c,
+            "summary": s,
+            "token_count": len(c),
+            "embedding": e
+        })
+
+    if rows:
+        supa.table("doc_chunks").insert(rows).execute()
+        supa.table("documents").update({"status": "ready", "processed": True}).eq("id", doc["id"]).execute()
+    else:
+        supa.table("documents").update({"status": "error", "processed": False, "processing_error": "no chunks"}).eq("id", doc["id"]).execute()
+```
+
+---
+
+# 2) `lib/rag.py` — include page numbers in citations and deep-link to page
+
+**Replace your entire `lib/rag.py`** with this page-aware, summary-first version:
+
+```python
 from openai import OpenAI
 from lib.supa import supa, signed_url_for
 import os, time
@@ -144,3 +245,38 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         ).choices[0].message.content)
 
     return (answer, meta)
+```
+
+---
+
+# 3) `templates/home.html` — show page # in Sources and deep-link
+
+**Find** the JS where you build each Sources `<li>` item (the block that uses `meta.title`/`meta.url`) and **replace that line** with:
+
+```js
+const title = meta.title || d;
+const pageTxt = (meta.page_index != null) ? ` (p. ${Number(meta.page_index)+1})` : '';
+const url = meta.url ? `<a href="${meta.url}" target="_blank">open</a>` : '';
+items.push(`<li id="src-${d}-${c}">[${n}] ${title}${pageTxt} — ${url}</li>`);
+```
+
+This renders “(p. N)” and makes the link jump to that page (`#page=N`).
+
+---
+
+# 4) Restart the server
+
+```bash
+pip install -r requirements.txt
+pkill -f gunicorn || true
+gunicorn -b 0.0.0.0:8000 app:app
+```
+
+---
+
+# 5) Quick verify
+
+* Upload a PDF → ask a question → in **Sources**, click “open”.
+* The PDF should open **on the exact page** shown `(p. N)`.
+
+If anything errors, paste the exact traceback and I’ll hand you the one-line fix.

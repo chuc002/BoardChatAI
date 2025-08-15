@@ -91,9 +91,9 @@
           const [d,c] = k.split('#');
           const meta = (json.citations||[]).find(x => x.document_id===d && String(x.chunk_index)===String(c)) || {};
           const title = meta.title || d;
+          const pageTxt = (meta.page_index != null) ? ` (p. ${Number(meta.page_index)+1})` : '';
           const url = meta.url ? `<a href="${meta.url}" target="_blank">open</a>` : '';
-          const pageInfo = meta.page_index ? ` (page ${meta.page_index})` : '';
-          items.push(`<li id="src-${d}-${c}">[${n}] ${title}${pageInfo} — ${url}</li>`);
+          items.push(`<li id="src-${d}-${c}">[${n}] ${title}${pageTxt} — ${url}</li>`);
         }
         const sources = items.length ? `<hr/><strong>Sources</strong><ol>${items.join('')}</ol>` : '';
         document.getElementById('answer').innerHTML = html + sources;
