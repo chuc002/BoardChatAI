@@ -11,37 +11,71 @@ client = OpenAI()
 def _sha256_bytes(b: bytes) -> str:
     h = hashlib.sha256(); h.update(b); return h.hexdigest()
 
-# --- PDF text extraction ---
+# --- PDF text extraction with page tracking ---
 def extract_text_from_pdf(file_bytes: bytes) -> str:
+    """Extract text without page tracking (legacy compatibility)"""
+    pages_with_text = extract_pages_from_pdf(file_bytes)
+    return "\n".join([text for text, _ in pages_with_text])
+
+def extract_pages_from_pdf(file_bytes: bytes) -> list[tuple[str, int]]:
+    """Extract text with page numbers: returns [(text, page_index), ...]"""
     # Try PyPDF first
     try:
         r = PdfReader(io.BytesIO(file_bytes))
-        out = []
-        for p in r.pages:
-            out.append(p.extract_text() or "")
-        text = "\n".join(out)
-        if len(text.strip()) > 50:
-            return text
+        pages = []
+        for page_idx, p in enumerate(r.pages):
+            text = p.extract_text() or ""
+            if text.strip():  # Only include pages with text
+                pages.append((text, page_idx + 1))  # 1-based page numbers
+        if len(pages) > 0:
+            return pages
     except Exception:
         pass
-    # Fallback to pdfminer
+    
+    # Fallback to pdfminer (no page separation available)
     try:
-        return extract_text(io.BytesIO(file_bytes)) or ""
+        full_text = extract_text(io.BytesIO(file_bytes)) or ""
+        if full_text.strip():
+            return [(full_text, 1)]  # Assume single page for fallback
     except Exception:
-        return ""
+        pass
+    
+    return []
 
 # --- Chunking ---
 def smart_chunks(text: str, target_tokens: int = 900, overlap: int = 150):
+    """Legacy chunking without page tracking"""
+    return smart_chunks_with_pages([(text, 1)], target_tokens, overlap)
+
+def smart_chunks_with_pages(pages: list[tuple[str, int]], target_tokens: int = 900, overlap: int = 150) -> list[tuple[str, int]]:
+    """
+    Chunk text while preserving page numbers.
+    Returns [(chunk_text, page_index), ...] where page_index is from the first token of the chunk.
+    """
     enc = tiktoken.get_encoding("cl100k_base")
-    toks = enc.encode(text)
-    if not toks:
+    all_tokens = []
+    token_to_page = []
+    
+    # Build complete token sequence with page mapping
+    for text, page_idx in pages:
+        toks = enc.encode(text)
+        all_tokens.extend(toks)
+        token_to_page.extend([page_idx] * len(toks))
+    
+    if not all_tokens:
         return []
+    
     step = max(1, target_tokens - overlap)
-    chunks = []
-    for i in range(0, len(toks), step):
-        seg = toks[i:i + target_tokens]
-        chunks.append(enc.decode(seg))
-    return chunks
+    chunks_with_pages = []
+    
+    for i in range(0, len(all_tokens), step):
+        seg = all_tokens[i:i + target_tokens]
+        chunk_text = enc.decode(seg)
+        # Page index from first token in chunk
+        page_idx = token_to_page[i] if i < len(token_to_page) else 1
+        chunks_with_pages.append((chunk_text, page_idx))
+    
+    return chunks_with_pages
 
 # --- Embeddings ---
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -114,9 +148,9 @@ def upsert_document(org_id: str, user_id: str, filename: str, file_bytes: bytes,
         "processing_error": None
     }).execute().data[0]
 
-    # Extract text
-    text = extract_text_from_pdf(file_bytes)
-    if len(text.strip()) < 50:
+    # Extract text with page tracking
+    pages = extract_pages_from_pdf(file_bytes)
+    if not pages or sum(len(text.strip()) for text, _ in pages) < 50:
         supa.table("documents").update({
             "status": "error",
             "processed": False,
@@ -124,22 +158,24 @@ def upsert_document(org_id: str, user_id: str, filename: str, file_bytes: bytes,
         }).eq("id", doc["id"]).execute()
         return doc, 0
 
-    # Chunk + embed
-    chunks = smart_chunks(text, target_tokens=900, overlap=150)
-    embeddings = embed_texts(chunks)
+    # Chunk with page preservation + embed
+    chunks_with_pages = smart_chunks_with_pages(pages, target_tokens=900, overlap=150)
+    chunk_texts = [chunk for chunk, _ in chunks_with_pages]
+    embeddings = embed_texts(chunk_texts)
 
     # Pre-summarize each chunk (budgeted; fast mini model)
     rows = []
-    for i, (c, e) in enumerate(zip(chunks, embeddings)):
-        s = _summarize_chunk(c, doc["id"], i)
+    for i, ((chunk_text, page_idx), e) in enumerate(zip(chunks_with_pages, embeddings)):
+        s = _summarize_chunk(chunk_text, doc["id"], i)
         rows.append({
             "org_id": org_id,
             "document_id": doc["id"],
             "chunk_index": i,
-            "content": c,
+            "content": chunk_text,
             "summary": s,             # <= we store the pre-summary
-            "token_count": len(c),
-            "embedding": e
+            "token_count": len(chunk_text),
+            "embedding": e,
+            "page_index": page_idx    # <= NEW: page number for deep-linking
         })
 
     if rows:

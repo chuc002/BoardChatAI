@@ -51,7 +51,7 @@ def _keyword(org_id: str, q: str, k: int):
     terms=[q,"bylaws","policy","rules","minutes","assessment","dues","board","committee","vote","reserved","Open Times","Primary","Juniors","Ladies"]
     seen,out=set(),[]
     for t in terms:
-        resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content").eq("org_id", org_id).ilike("content", f"%{t}%").limit(k).execute().data
+        resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content,page_index").eq("org_id", org_id).ilike("content", f"%{t}%").limit(k).execute().data
         for r in resp or []:
             key=(r["document_id"], r["chunk_index"])
             if key in seen: continue
@@ -84,9 +84,15 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
     # 2) build notes from pre-summaries, fallback to raw (trimmed)
     notes=[]; total=0; meta=[]
     for r in rows:
-        doc_id=r.get("document_id"); ci=r.get("chunk_index")
+        doc_id=r.get("document_id"); ci=r.get("chunk_index"); page_idx=r.get("page_index")
         title, link = _doc_title_link(doc_id)
-        meta.append({"document_id": doc_id, "chunk_index": ci, "title": title, "url": link})
+        meta.append({
+            "document_id": doc_id, 
+            "chunk_index": ci, 
+            "title": title, 
+            "url": link,
+            "page_index": page_idx  # Include page number for future deep-linking
+        })
 
         s = r.get("summary")
         if not s or len(s)<20:

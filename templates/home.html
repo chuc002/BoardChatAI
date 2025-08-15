@@ -92,7 +92,8 @@
           const meta = (json.citations||[]).find(x => x.document_id===d && String(x.chunk_index)===String(c)) || {};
           const title = meta.title || d;
           const url = meta.url ? `<a href="${meta.url}" target="_blank">open</a>` : '';
-          items.push(`<li id="src-${d}-${c}">[${n}] ${title} (chunk ${c}) — ${url}</li>`);
+          const pageInfo = meta.page_index ? ` (page ${meta.page_index})` : '';
+          items.push(`<li id="src-${d}-${c}">[${n}] ${title}${pageInfo} — ${url}</li>`);
         }
         const sources = items.length ? `<hr/><strong>Sources</strong><ol>${items.join('')}</ol>` : '';
         document.getElementById('answer').innerHTML = html + sources;
