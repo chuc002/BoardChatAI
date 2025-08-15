@@ -34,6 +34,15 @@ def upload():
         results.append({"document_id": doc["id"], "chunks": n, "title": f.filename})
     return jsonify({"ok": True, "results": results})
 
+@app.post("/docs/rename")
+def rename_doc():
+    doc_id = (request.form.get("id") if request.form else None) or (request.json.get("id") if request.is_json else None)
+    title  = (request.form.get("title") if request.form else None) or (request.json.get("title") if request.is_json else None)
+    if not doc_id or not title:
+        return jsonify({"ok": False, "error": "missing id/title"}), 400
+    supa.table("documents").update({"title": title}).eq("id", doc_id).execute()
+    return docs()
+
 @app.post("/docs/delete")
 def delete_doc():
     doc_id = (request.form.get("id") if request.form else None) or (request.json.get("id") if request.is_json else None)
