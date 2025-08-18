@@ -503,6 +503,39 @@
             padding: 16px 20px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             border: 1px solid rgba(0,0,0,0.05);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .message-text h1, .message-text h2, .message-text h3, .message-text h4 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+        
+        .message-text h1:first-child, .message-text h2:first-child, .message-text h3:first-child, .message-text h4:first-child {
+            margin-top: 0;
+        }
+        
+        .message-text ul, .message-text ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+        
+        .message-text li {
+            margin: 0.5rem 0;
+        }
+        
+        .message-text p {
+            margin: 1rem 0;
+        }
+        
+        .message-text p:first-child {
+            margin-top: 0;
+        }
+        
+        .message-text p:last-child {
+            margin-bottom: 0;
         }
 
         .user-message .message-text {
@@ -1072,7 +1105,7 @@
             document.getElementById('chat-query').value = '';
         }
 
-        // Enhanced response rendering
+        // Enhanced response rendering with proper formatting
         function renderChatResponse(json) {
             const messagesContainer = document.getElementById('chat-messages');
             const loadingMessage = document.getElementById('loading-message');
@@ -1082,33 +1115,39 @@
             }
 
             const responseMessage = document.createElement('div');
-            responseMessage.className = 'message';
+            responseMessage.className = 'message ai-message';
             
-            let html = `<div class="message-ai">
-                <span class="ai-badge">Forever Board Member</span>`;
+            let html = `<div class="message-avatar">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div class="message-content">
+                <div class="message-text">`;
 
             if (json.markdown) {
-                html += `<div>${marked.parse(json.markdown)}</div>`;
+                // Properly render markdown with preserved formatting
+                const formattedMarkdown = marked.parse(json.markdown);
+                html += formattedMarkdown;
             }
 
-            if (json.citations && json.citations.length > 0) {
-                html += '<div class="citation-list"><h6><i class="fas fa-quote-left"></i> Sources:</h6>';
-                json.citations.forEach((citation, index) => {
-                    const pageText = citation.page_index !== null ? ` (p. ${citation.page_index})` : '';
-                    html += `<div class="citation-item">
-                        <strong>[${index + 1}]</strong> ${citation.title}${pageText}
-                        <a href="${citation.url}" target="_blank" class="ms-2">
-                            <i class="fas fa-external-link-alt"></i> View Document
-                        </a>
-                    </div>`;
-                });
-                html += '</div>';
-            }
+                    if (json.citations && json.citations.length > 0) {
+                        html += '<div class="citations-list"><h6><i class="fas fa-quote-left"></i> Sources:</h6>';
+                        json.citations.forEach((citation, index) => {
+                            const pageText = citation.page_index !== null ? ` (p. ${citation.page_index})` : '';
+                            html += `<div class="citation-item">
+                                <i class="fas fa-file-alt"></i>
+                                <strong>[${index + 1}]</strong> ${citation.title}${pageText}
+                                ${citation.url ? `<a href="${citation.url}" target="_blank" class="ms-2">
+                                    <i class="fas fa-external-link-alt"></i> View
+                                </a>` : ''}
+                            </div>`;
+                        });
+                        html += '</div>';
+                    }
 
-            html += '</div>';
-            responseMessage.innerHTML = html;
-            messagesContainer.appendChild(responseMessage);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    html += '</div></div>';
+                    responseMessage.innerHTML = html;
+                    messagesContainer.appendChild(responseMessage);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
         // Document management
