@@ -49,10 +49,13 @@ Preferred communication style: Simple, everyday language.
 ### AI Integration
 - **Language Model**: OpenAI GPT-4o for chat responses with automatic fallback to GPT-4o-mini
 - **Token Management**: Strict token budgeting with configurable limits (2400 summary tokens, 4800 final tokens)
-- **Retrieval System**: Vector similarity search with hybrid keyword fallback using pre-computed summaries
+- **Retrieval System**: Vector similarity search with MMR reranking and hybrid keyword fallback
+- **MMR Reranking**: Maximal Marginal Relevance balances relevance vs diversity in results
+- **Graceful Degradation**: Automatic fallback to keyword search when vector index unavailable
+- **Performance Logging**: Real-time timing logs for retrieval and processing steps
 - **Context Assembly**: Summary-first approach with fallback to truncated content for token efficiency
 - **Response Generation**: Retry logic with exponential backoff and automatic model downgrading
-- **Citation Management**: De-duplicated sources with document titles and download links
+- **Citation Management**: De-duplicated sources with document titles and page-specific deep links
 
 ## External Dependencies
 
@@ -84,7 +87,10 @@ Preferred communication style: Simple, everyday language.
 - **CHAT_PRIMARY=gpt-4o**: Main model for generating final answers
 - **CHAT_COMPRESS=gpt-4o-mini**: Model for chunk summarization during ingestion  
 - **EMBED_MODEL=text-embedding-3-small**: Model for generating document embeddings
-- **MAX_CANDIDATES=24**: Maximum document chunks to retrieve per query
+- **MAX_CANDIDATES=16**: Maximum document chunks to retrieve per query
+- **MMR_K=8**: Final reranked results count after MMR filtering
+- **MMR_LAMBDA=0.55**: Diversity vs relevance balance (0.5-0.7, higher = more diverse)
+- **USE_VECTOR=1**: Enable vector search (set to 0 for keyword-only mode)
 - **MAX_SUMMARY_TOKENS=2400**: Token budget for building source notes from summaries
 - **MAX_FINAL_TOKENS=4800**: Maximum tokens allowed in final prompt to AI
 - **CHAT_TEMPERATURE=0.2**: AI response creativity (0.0-1.0, lower = more factual)
