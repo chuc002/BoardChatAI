@@ -53,9 +53,18 @@ def smart_chunks_by_page(pages: list[tuple[int, str]], target_tokens: int = 900,
 # --- Embeddings ---
 def embed_texts(texts: list[str]) -> list[list[float]]:
     from os import getenv
-    model = getenv("EMBED_MODEL", "text-embedding-3-small")  # 1536-dim
-    resp = client.embeddings.create(model=model, input=texts)
-    return [d.embedding for d in resp.data]
+    model = getenv("EMBED_MODEL", "text-embedding-3-small")  # 1536-dim, high quality
+    try:
+        resp = client.embeddings.create(model=model, input=texts)
+        return [d.embedding for d in resp.data]
+    except Exception as e:
+        print(f"[EMBED] Failed with model '{model}': {e}")
+        # Try fallback model
+        if model != "text-embedding-ada-002":
+            print("[EMBED] Trying fallback: text-embedding-ada-002")
+            resp = client.embeddings.create(model="text-embedding-ada-002", input=texts)
+            return [d.embedding for d in resp.data]
+        raise
 
 # --- Ingest pipeline (with pre-summaries) ---
 def _summarize_chunk(text: str, doc_id: str, idx: int) -> str:
