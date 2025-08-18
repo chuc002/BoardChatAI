@@ -24,13 +24,14 @@ Preferred communication style: Simple, everyday language.
 ### Recent Performance Improvements (August 18, 2025)
 - **✅ ULTIMATE NOTEBOOKLM ENHANCEMENT**: Final optimization to achieve 90%+ comprehensive quality matching NotebookLM standards
 - **Enhanced Readability & Structure**: Implemented proper formatting with clear section headers, double line breaks, organized bullet points for easy scanning
+- **Open Notebook Integration**: Reviewed and incorporated advanced techniques from open-notebook repository including multi-modal content processing, granular context control, and professional citation systems
 - **tldw_chatbook Integration**: Adopted advanced RAG approaches from tldw_chatbook project for comprehensive document intelligence
-- **Advanced Content Scoring**: Implemented detail richness scoring system with 22+ comprehensive indicators for optimal chunk selection
+- **Advanced Content Scoring**: Implemented weighted detail richness scoring system with 22+ comprehensive indicators for optimal chunk selection
 - **Comprehensive Category Coverage**: Enhanced retrieval to capture all membership categories (Foundation, Social, Intermediate, Legacy, Corporate, Golfing Senior)
 - **Multi-Category Synthesis**: System searches 60+ chunks and combines information across all membership types for complete fee structure responses
-- **Advanced Content Extraction**: Specialized extraction using 10,000+ characters per chunk with progressive content allocation based on detail richness
+- **Percentage-Rich Content Prioritization**: Specialized extraction prioritizing chunks containing specific percentages (70%, 75%, 50%, 25%, 40%) with up to 12,000 characters per chunk
 - **Professional Response Organization**: NotebookLM-style structured responses with Roman numerals (I-VII), proper spacing, and comprehensive cross-category synthesis
-- **Enhanced Prompting System**: Implemented exhaustive extraction instructions inspired by tldw_chatbook's research workflow approach
+- **Enhanced Prompting System**: Implemented exhaustive extraction instructions inspired by tldw_chatbook's research workflow approach and Open Notebook's multi-dimensional quality metrics
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization

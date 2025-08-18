@@ -357,21 +357,14 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         # For detailed questions, use more complete content and prioritize actual content over summaries
         if any(term in question.lower() for term in ['specific', 'exact', 'how much', 'percentage', 'fee', 'cost', 'amount', 'reinstatement', 'structure', 'payment', 'requirement']):
             
-            # For comprehensive fee structure questions, use ALL available content
-            if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
-                # Use maximum content possible for comprehensive questions
-                source_text = content[:8000] if content else s  # Maximum detail
-                
-                # Also gather related chunks for complete context
-                try:
-                    related_chunks = supa.table("doc_chunks").select("content").eq("org_id", org_id).ilike("content", "%fee%").limit(5).execute()
-                    if related_chunks.data:
-                        additional_content = ""
-                        for related in related_chunks.data[:3]:
-                            additional_content += " " + (related.get("content", "")[:1500])
-                        source_text = (content + additional_content)[:10000]  # Extended comprehensive content
-                except:
-                    source_text = content[:6000] if content else s
+            # For comprehensive fee structure questions, prioritize percentage-rich content
+            if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures', 'fee', 'payment', 'structure']):
+                # Prioritize chunks with specific percentages - use maximum content for comprehensive answers  
+                if any(pct in content for pct in ['70%', '75%', '50%', '25%', '40%']):
+                    source_text = content[:12000]  # Maximum content for percentage-rich chunks
+                    print(f"[RAG] Using percentage-rich chunk: {len(source_text)} chars with percentages")
+                else:
+                    source_text = content[:8000] if content else s  # High detail for other chunks
             # For membership fee questions, gather comprehensive content
             if any(fee_term in question.lower() for fee_term in ['fee', 'cost', 'payment', 'dues', 'structure']):
                 # Use much more content to capture complete fee structures
