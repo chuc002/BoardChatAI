@@ -25,6 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Architecture Pattern**: Service layer pattern separating business logic from routes
 - **Error Handling**: Comprehensive logging and user-friendly error messages
 - **Chat History**: Persistent Q&A storage with full citation metadata preservation
+- **Background Processing**: Worker process (worker.py) for asynchronous document ingestion
 
 ### Data Storage Solutions
 - **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history
@@ -98,3 +99,7 @@ Preferred communication style: Simple, everyday language.
 #### Development Environment Variables
 - **DEV_ORG_ID**: Development organization ID for data isolation
 - **DEV_USER_ID**: Development user ID for attribution
+
+#### Background Worker Configuration (Optional)
+- **WORKER_POLL_SEC=1.5**: Polling interval for checking new ingestion jobs
+- **WORKER_BATCH=3**: Maximum documents to process simultaneously
