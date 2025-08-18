@@ -20,27 +20,39 @@ TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 
 SYSTEM_PROMPT = (
     "You are Forever Board Member, an AI assistant specializing in board governance and club documents. "
-    "Provide comprehensive, well-structured answers using ONLY the exact information from the source notes provided. "
-    "For membership fee structure questions, create a properly formatted response with excellent readability:\n\n"
-    "**FORMATTING REQUIREMENTS:**\n"
-    "- Use clear section headers with proper spacing (double line breaks between sections)\n"
-    "- Create organized bullet points with consistent indentation\n"
-    "- Use numbered lists for categories and sub-numbered lists for details\n"
-    "- Include proper spacing between different membership categories\n"
-    "- Format percentages and amounts clearly (e.g., '70% of initiation fee')\n"
-    "- Use descriptive subheadings for different fee types\n\n"
-    "**CONTENT ORGANIZATION:**\n"
-    "1. Start with a brief overview paragraph\n"
-    "2. **MEMBERSHIP CATEGORIES** - List all categories with clear formatting\n"
-    "3. **INITIATION FEES** - Organize by membership type with specific amounts/percentages\n"
-    "4. **TRANSFER FEES** - Detail transfer requirements and percentages\n"
-    "5. **PAYMENT REQUIREMENTS** - Timeline and billing information\n"
-    "6. **AGE-BASED PROVISIONS** - Age requirements and restrictions\n"
-    "7. **BOARD APPROVAL PROCESSES** - Application and approval details\n\n"
-    "Extract ALL available details: percentages (70%, 75%, 50%, 25%), timeframes (90 days), "
-    "age limits (65+), member limits, waiting lists, and eligibility criteria. "
-    "Format for easy scanning with clear headers, proper spacing, and organized bullet points. "
-    "Include inline citations for all specific claims."
+    "Create comprehensive, NotebookLM-style responses that extract ALL available details from source notes.\n\n"
+    "**COMPREHENSIVE EXTRACTION REQUIREMENTS:**\n"
+    "- Extract EVERY percentage, dollar amount, timeframe, and specific condition mentioned\n"
+    "- Include ALL membership categories found in the sources\n"
+    "- Detail EVERY transfer scenario with exact fees and conditions\n"
+    "- List ALL age requirements, member limits, and special provisions\n"
+    "- Cover ALL payment deadlines, billing procedures, and financial obligations\n\n"
+    "**RESPONSE STRUCTURE (NotebookLM Style):**\n\n"
+    "Start with a comprehensive overview paragraph explaining the club's membership structure.\n\n"
+    "**I. MEMBERSHIP CATEGORIES & INITIATION FEES**\n"
+    "List each category with:\n"
+    "• Initiation fee amounts/percentages\n"
+    "• Age requirements\n"
+    "• Member limits\n"
+    "• Special conditions\n\n"
+    "**II. TRANSFER FEES & SCENARIOS**\n"
+    "Detail every transfer type:\n"
+    "• Foundation transfers (children, spouse, etc.)\n"
+    "• Corporate changes with exact percentages\n"
+    "• Divorce scenarios with specific fees\n"
+    "• Age-based transfers with conditions\n\n"
+    "**III. REINSTATEMENT PROVISIONS**\n"
+    "• Year-by-year percentage reductions\n"
+    "• Category-specific rules\n\n"
+    "**IV. PAYMENT & BILLING REQUIREMENTS**\n"
+    "• Payment deadlines and late fees\n"
+    "• Billing procedures\n"
+    "• Food & beverage minimums\n\n"
+    "**V. SPECIAL PROGRAMS & PROVISIONS**\n"
+    "• Legacy programs\n"
+    "• Waiting list procedures\n"
+    "• Board approval processes\n\n"
+    "Use precise citations [Doc:{document_id}#Chunk:{chunk_index}] for every specific claim."
 )
 
 enc = tiktoken.get_encoding("cl100k_base")
@@ -115,23 +127,55 @@ def _keyword(org_id: str, q: str, k: int):
     # Search with priority order
     seen, out = set(), []
     
-    # For comprehensive fee structure questions, cast a much wider net to capture all information
+    # For comprehensive fee structure questions, use ultimate comprehensive extraction
     if any(comprehensive_term in q.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement']):
-        # Dramatically expand search for comprehensive questions to match NotebookLM
-        comprehensive_terms = priority_terms + [
-            "membership category", "Board consideration", "waiting list", "age", 
-            "Social Former Foundation", "Golfing Senior", "monthly dues", "guest fee", 
-            "capital assessment", "Intermediate", "Legacy", "Corporate", "Nonresident",
-            "maximum", "limited to", "approval", "consideration", "eligibility",
-            "requirements", "restrictions", "privileges", "rights", "obligations"
+        # Get ALL chunks and rank by detail richness
+        all_chunks_resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
+                               .eq("org_id", org_id).execute().data
+        
+        # Detail indicators for comprehensive extraction
+        detail_indicators = [
+            '70%', '75%', '50%', '25%', '40%', '6%', '100%',
+            'transfer fee', 'initiation fee', 'reinstatement',
+            'age 65', 'combined age', '90 days', '30 days',
+            'surviving spouse', 'corporate', 'divorce', 
+            'foundation', 'social', 'intermediate', 'legacy',
+            'food & beverage', 'trimester', 'late fee',
+            'board approval', 'waiting list', 'member limit',
+            'legacy program', 'designated', 'nonresident'
         ]
-        k = min(k * 3, 60)  # Triple search scope for comprehensive questions
+        
+        # Score and rank chunks by comprehensive detail content
+        detailed_chunks = []
+        for chunk in all_chunks_resp or []:
+            content = chunk.get('content', '') or ''
+            if len(content) < 200:
+                continue
+                
+            detail_score = sum(1 for indicator in detail_indicators if indicator in content.lower())
+            
+            if detail_score >= 2:  # Must have at least 2 detail indicators
+                detailed_chunks.append({
+                    'chunk': chunk,
+                    'detail_score': detail_score
+                })
+        
+        # Sort by detail richness and take top chunks
+        detailed_chunks.sort(key=lambda x: x['detail_score'], reverse=True)
+        
+        # Add the most detailed chunks first
+        for chunk_info in detailed_chunks[:k]:
+            chunk = chunk_info['chunk']
+            key = (chunk["document_id"], chunk["chunk_index"])
+            if key not in seen:
+                seen.add(key)
+                out.append(chunk)
         
         # Also search for each major membership category specifically
         category_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Golfing Senior", "Nonresident"]
         for category in category_terms:
             resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
-                   .eq("org_id", org_id).ilike("content", f"%{category}%").limit(8).execute().data
+                   .eq("org_id", org_id).ilike("content", f"%{category}%").limit(5).execute().data
             for r in resp or []:
                 key = (r["document_id"], r["chunk_index"])
                 if key not in seen:
@@ -384,9 +428,9 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
-    # For comprehensive fee structure questions, provide detailed formatting and synthesis instructions
+    # For comprehensive fee structure questions, provide NotebookLM-level extraction instructions
     if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
-        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Create a well-formatted, comprehensive membership fee structure guide that is easy to read and scan. Follow this structure:\n\n1. Start with a brief overview paragraph explaining the club's membership structure\n\n2. **MEMBERSHIP CATEGORIES**\n   - List all membership types with clear descriptions\n   - Use proper spacing between categories\n\n3. **INITIATION FEES**\n   - Organize by membership type\n   - Include specific percentages and amounts\n   - Format clearly (e.g., '70% of current initiation fee')\n\n4. **TRANSFER FEES**\n   - Detail transfer requirements\n   - Include all percentage calculations\n\n5. **PAYMENT & TIMING REQUIREMENTS**\n   - Payment deadlines and schedules\n   - Billing procedures\n\n6. **AGE-BASED PROVISIONS & SPECIAL RULES**\n   - Age requirements and restrictions\n   - Waiting lists and member limits\n\n7. **BOARD APPROVAL PROCESSES**\n   - Application procedures\n   - Approval requirements\n\nUse double line breaks between sections, clear bullet points, and proper indentation. Extract ALL specific details from the source notes and format for maximum readability.\n\nSOURCE NOTES (each ends with its citation):\n"
+        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Create a comprehensive, NotebookLM-quality response that extracts EVERY detail from the source notes. Be exhaustively thorough:\n\n• Extract ALL percentages mentioned (70%, 75%, 50%, 25%, 40%, etc.)\n• List EVERY membership category found in the sources\n• Detail ALL transfer scenarios with exact fees and conditions\n• Include ALL age requirements, member limits, and timeframes\n• Cover ALL payment procedures, late fees, and billing details\n• Extract ALL special programs (Legacy, Corporate, etc.)\n• Include EVERY reinstatement rule with year-by-year breakdowns\n• Detail ALL food & beverage minimums and trimester requirements\n• List ALL additional fees (lockers, storage, reciprocal clubs, etc.)\n\nOrganize into clear sections with Roman numerals (I., II., III., etc.) and use bullet points for details. Provide specific citations for every claim. Be as comprehensive as the NotebookLM example provided - leave nothing out.\n\nSOURCE NOTES (each ends with its citation):\n"
     else:
         preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
     body = "\n".join(notes)
