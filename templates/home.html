@@ -924,6 +924,56 @@
                 transform: translateY(0);
             }
         }
+
+        /* Enhanced AI response formatting for NotebookLM-style quality */
+        .message-text {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #2d3748;
+        }
+
+        .message-text h1, .message-text h2, .message-text h3, .message-text h4, .message-text h5 {
+            margin-top: 1.75rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: #1a365d;
+            line-height: 1.3;
+        }
+
+        .message-text h1:first-child, .message-text h2:first-child, .message-text h3:first-child, 
+        .message-text h4:first-child, .message-text h5:first-child {
+            margin-top: 0;
+        }
+
+        .message-text p {
+            margin-bottom: 1.25rem;
+            line-height: 1.7;
+        }
+
+        .message-text ul, .message-text ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+        }
+
+        .message-text li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6;
+        }
+
+        /* Roman numeral section headers */
+        .message-text p strong {
+            font-weight: 600;
+            color: #1a365d;
+        }
+
+        /* Better paragraph spacing for structured responses */
+        .message-text p + ul {
+            margin-top: -0.5rem;
+        }
+
+        .message-text p + p {
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -993,16 +1043,40 @@
                                             </div>
                                             <div class="message-content">
                                                 <div class="message-text">
-                                                    <h5>Welcome to Board Continuity</h5>
-                                                    <p>I'm your AI assistant with access to all board documents, policies, and governance materials. I can help you:</p>
-                                                    <ul class="chat-features">
-                                                        <li><i class="fas fa-search"></i> Find specific information across all documents</li>
-                                                        <li><i class="fas fa-gavel"></i> Interpret policies and bylaws</li>
-                                                        <li><i class="fas fa-calculator"></i> Calculate fees and financial obligations</li>
-                                                        <li><i class="fas fa-calendar"></i> Review meeting minutes and decisions</li>
-                                                        <li><i class="fas fa-users"></i> Understand membership structures</li>
-                                                    </ul>
-                                                    <p class="text-muted mt-3">Ask me anything about your board documents. I'll provide detailed answers with specific citations.</p>
+                                                    <div class="welcome-content">
+                                                        <h4 style="color: #1a365d; margin-bottom: 1rem; font-weight: 600;">Welcome to Board Continuity</h4>
+                                                        
+                                                        <p style="color: #4a5568; font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                                                            I'm your AI assistant with access to all board documents, policies, and governance materials. I can help you:
+                                                        </p>
+                                                        
+                                                        <div class="capabilities-grid" style="display: grid; gap: 0.75rem; margin-bottom: 1.5rem;">
+                                                            <div class="capability-item" style="display: flex; align-items: center; padding: 0.5rem 0;">
+                                                                <i class="fas fa-search" style="color: #3182ce; margin-right: 0.75rem; font-size: 1.1rem;"></i>
+                                                                <span style="color: #2d3748; font-weight: 500;">Find specific information across all documents</span>
+                                                            </div>
+                                                            <div class="capability-item" style="display: flex; align-items: center; padding: 0.5rem 0;">
+                                                                <i class="fas fa-gavel" style="color: #3182ce; margin-right: 0.75rem; font-size: 1.1rem;"></i>
+                                                                <span style="color: #2d3748; font-weight: 500;">Interpret policies and bylaws</span>
+                                                            </div>
+                                                            <div class="capability-item" style="display: flex; align-items: center; padding: 0.5rem 0;">
+                                                                <i class="fas fa-calculator" style="color: #3182ce; margin-right: 0.75rem; font-size: 1.1rem;"></i>
+                                                                <span style="color: #2d3748; font-weight: 500;">Calculate fees and financial obligations</span>
+                                                            </div>
+                                                            <div class="capability-item" style="display: flex; align-items: center; padding: 0.5rem 0;">
+                                                                <i class="fas fa-calendar" style="color: #3182ce; margin-right: 0.75rem; font-size: 1.1rem;"></i>
+                                                                <span style="color: #2d3748; font-weight: 500;">Review meeting minutes and decisions</span>
+                                                            </div>
+                                                            <div class="capability-item" style="display: flex; align-items: center; padding: 0.5rem 0;">
+                                                                <i class="fas fa-users" style="color: #3182ce; margin-right: 0.75rem; font-size: 1.1rem;"></i>
+                                                                <span style="color: #2d3748; font-weight: 500;">Understand membership structures</span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <p style="color: #718096; font-size: 0.95rem; line-height: 1.5; margin-bottom: 0;">
+                                                            Ask me anything about your board documents. I'll provide detailed answers with specific citations.
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1607,13 +1681,20 @@
                 `;
             }
             
+            // Convert markdown-style formatting to HTML for better display
+            const formattedMarkdown = markdown
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>');
+            
             messageDiv.innerHTML = `
                 <div class="message-avatar">
                     <i class="fas fa-brain"></i>
                 </div>
                 <div class="message-content">
                     <div class="message-text">
-                        ${markdown}
+                        <p>${formattedMarkdown}</p>
                         ${citationsHTML}
                     </div>
                 </div>
