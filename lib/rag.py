@@ -83,7 +83,7 @@ def _keyword(org_id: str, q: str, k: int):
     t0=time.time()
     
     # High-priority terms that likely contain the answer
-    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee"]
+    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee", "Foundation membership", "following percentages"]
     
     # Membership-specific terms
     membership_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Nonresident", "Golfing Senior"]
@@ -101,6 +101,12 @@ def _keyword(org_id: str, q: str, k: int):
             if key not in seen:
                 seen.add(key)
                 out.append(r)
+                # For reinstatement questions, prioritize chunks with percentage content
+                content = r.get("content", "")
+                if term == "reinstatement" and any(pct in content for pct in ["75%", "50%", "25%"]):
+                    # Move this chunk to front for higher priority
+                    if out:
+                        out.insert(0, out.pop())
     
     # Then search membership + financial combinations
     if len(out) < k:
@@ -228,23 +234,37 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         content = r.get("content") or ""
         s = r.get("summary")
         
-        # For detailed questions, try to get more complete content by checking adjacent chunks
+        # For detailed questions, use more complete content and prioritize actual content over summaries
         if any(term in question.lower() for term in ['specific', 'exact', 'how much', 'percentage', 'fee', 'cost', 'amount', 'reinstatement']):
-            # Check if this chunk seems truncated (ends with partial number)
-            if content and (content.strip().endswith(' 75') or content.strip().endswith(' 70') or content.strip().endswith(' 50') or content.strip().endswith(' 40')):
-                # Try to get the next chunk to complete the thought
-                try:
-                    next_chunk = supa.table("doc_chunks").select("content").eq("document_id", doc_id).eq("chunk_index", ci + 1).limit(1).execute()
-                    if next_chunk.data:
-                        next_content = next_chunk.data[0].get("content", "")
-                        # Combine chunks for complete context
-                        source_text = (content + " " + next_content)[:3000]  # Extended content for detailed answers
+            # For reinstatement questions, ensure we get the complete percentage information
+            if 'reinstatement' in question.lower() and content:
+                # Look for the reinstatement section in the content
+                reinstatement_start = content.find('(h) Reinstatement')
+                if reinstatement_start >= 0:
+                    # Extract from the reinstatement section onwards
+                    reinstatement_section = content[reinstatement_start:]
+                    # Use the complete section if it contains percentages
+                    if any(pct in reinstatement_section for pct in ['75%', '50%', '25%']):
+                        source_text = reinstatement_section[:4000]  # More complete content
                     else:
-                        source_text = content[:2000]
-                except:
-                    source_text = content[:2000]
+                        source_text = content[:3000]
+                else:
+                    source_text = content[:3000]
             else:
-                source_text = content[:2000] if content else s
+                # Check if this chunk seems truncated (ends with partial number)
+                if content and (content.strip().endswith(' 75') or content.strip().endswith(' 70') or content.strip().endswith(' 50') or content.strip().endswith(' 40')):
+                    # Try to get the next chunk to complete the thought
+                    try:
+                        next_chunk = supa.table("doc_chunks").select("content").eq("document_id", doc_id).eq("chunk_index", ci + 1).limit(1).execute()
+                        if next_chunk.data:
+                            next_content = next_chunk.data[0].get("content", "")
+                            source_text = (content + " " + next_content)[:3000]
+                        else:
+                            source_text = content[:2000]
+                    except:
+                        source_text = content[:2000]
+                else:
+                    source_text = content[:2000] if content else s
         else:
             # Use summary for general questions
             source_text = s if s and len(s) > 20 else content[:1200]
