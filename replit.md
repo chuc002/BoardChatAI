@@ -26,6 +26,7 @@ Preferred communication style: Simple, everyday language.
 - **Error Handling**: Comprehensive logging and user-friendly error messages
 - **Chat History**: Persistent Q&A storage with full citation metadata preservation
 - **Background Processing**: Worker process (worker.py) for asynchronous document ingestion
+- **Job Status API**: Real-time endpoints to track background processing progress
 
 ### Data Storage Solutions
 - **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history

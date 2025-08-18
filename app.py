@@ -97,6 +97,19 @@ def history():
     rows = supa.table("qa_history").select("*").eq("org_id", ORG_ID).order("created_at", desc=True).limit(50).execute().data or []
     return jsonify({"ok": True, "items": rows})
 
+# ---- Background Jobs ----
+@app.get("/jobs")
+def jobs():
+    rows = supa.table("v_ingest_job_status").select("*").eq("org_id", ORG_ID).order("created_at", desc=True).limit(50).execute().data or []
+    return jsonify({"ok": True, "jobs": rows})
+
+@app.get("/jobs/<job_id>")
+def job_detail(job_id):
+    job = supa.table("ingest_jobs").select("*").eq("id", job_id).limit(1).execute().data
+    items = supa.table("ingest_items").select("id,filename,status,document_id,error_message,created_at,started_at,finished_at") \
+            .eq("job_id", job_id).order("created_at").limit(500).execute().data or []
+    return jsonify({"ok": True, "job": (job[0] if job else None), "items": items})
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     app.run(host="0.0.0.0", port=8000, debug=True)

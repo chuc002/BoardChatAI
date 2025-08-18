@@ -1,0 +1,61 @@
+<div class="card">
+  <h3>Async upload (recommended)</h3>
+  <form class="row" hx-post="/upload_async" hx-encoding="multipart/form-data" hx-target="#asyncres">
+    <input type="file" name="file" required />
+    <button>Queue</button>
+  </form>
+  <pre id="asyncres"></pre>
+
+  <div class="row" style="margin-top:8px">
+    <button hx-get="/jobs" hx-target="#jobs">Refresh jobs</button>
+  </div>
+  <div id="jobs"></div>
+</div>
+
+<script>
+  document.body.addEventListener('htmx:afterOnLoad', (e) => {
+    // Render job list
+    if (e.detail && e.detail.elt && e.detail.elt.id === 'jobs') {
+      try {
+        const json = JSON.parse(e.detail.xhr.responseText);
+        if (json.ok) {
+          const rows = (json.jobs||[]).map(j => {
+            const pct = (j.items_done + j.items_error) / Math.max(1,(j.items_done+j.items_error+j.items_queued+j.items_running));
+            const pc = Math.round(pct*100);
+            return `<div class="card">
+              <div><strong>Job:</strong> ${j.job_id}</div>
+              <div>Status: ${j.job_status} — ${pc}%</div>
+              <div>Items: ✅ ${j.items_done} · 🟨 ${j.items_running} · ⏳ ${j.items_queued} · ❌ ${j.items_error}</div>
+              <button hx-get="/jobs/${j.job_id}" hx-target="#job-${j.job_id}">Details</button>
+              <div id="job-${j.job_id}"></div>
+            </div>`;
+          }).join('');
+          e.detail.elt.innerHTML = rows || 'No jobs yet.';
+        }
+      } catch(_) {}
+    }
+    // Render job detail
+    if (e.detail && e.detail.elt && e.detail.elt.id && e.detail.elt.id.startsWith('job-')) {
+      try {
+        const json = JSON.parse(e.detail.xhr.responseText);
+        if (json.ok) {
+          const items = (json.items||[]).map(it => {
+            const doc = it.document_id ? ` · doc ${it.document_id}` : '';
+            const err = it.error_message ? `<div style="color:#b00">Error: ${it.error_message}</div>` : '';
+            return `<div>• ${it.filename} — ${it.status}${doc}${err}</div>`;
+          }).join('');
+          e.detail.elt.innerHTML = items || 'No items';
+        }
+      } catch(_) {}
+    }
+    // Show async enqueue response
+    if (e.detail && e.detail.elt && e.detail.elt.id === 'asyncres') {
+      try {
+        const json = JSON.parse(e.detail.xhr.responseText);
+        if (json.ok) {
+          e.detail.elt.innerText = `Queued job: ${json.job_id}\nstorage: ${json.storage_path}\n\nClick "Refresh jobs" to watch progress.`;
+        }
+      } catch(_) {}
+    }
+  });
+</script>
