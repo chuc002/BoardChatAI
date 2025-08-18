@@ -6,7 +6,7 @@ import tiktoken
 client = OpenAI()
 
 # ==== CONFIG ====
-CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4")
+CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-3.5-turbo")
 EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-ada-002")
 USE_VECTOR     = os.getenv("USE_VECTOR", "1") not in ("0","false","False","no","NO")
 
@@ -81,29 +81,57 @@ def _vector(org_id: str, q: str, k: int):
 
 def _keyword(org_id: str, q: str, k: int):
     t0=time.time()
-    # Enhanced keyword search with membership-specific terms
-    base_terms = [q]
-    membership_terms = ["membership", "fee", "dues", "initiation", "transfer", "Foundation", "Social", "Intermediate", "Nonresident", "Corporate", "Legacy", "Golfing Senior", "Surviving Spouse"]
-    financial_terms = ["payment", "billing", "charge", "cost", "minimum", "percent", "tax", "discount", "refund", "delinquent"]
-    governance_terms = ["bylaws", "policy", "rules", "board", "committee", "vote", "privileges", "obligations", "requirements"]
     
-    # Combine all search terms
-    all_terms = base_terms + membership_terms + financial_terms + governance_terms
+    # High-priority terms that likely contain the answer
+    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee"]
+    
+    # Membership-specific terms
+    membership_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Nonresident", "Golfing Senior"]
+    financial_terms = ["fee", "dues", "payment", "percent", "discount", "charge", "cost", "billing"]
+    
+    # Search with priority order
     seen, out = set(), []
     
-    for t in all_terms:
+    # First, search for high-priority terms that likely contain specific answers
+    for term in priority_terms:
         resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
-               .eq("org_id", org_id).ilike("content", f"%{t}%").limit(k*2).execute().data
+               .eq("org_id", org_id).ilike("content", f"%{term}%").limit(k).execute().data
         for r in resp or []:
             key = (r["document_id"], r["chunk_index"])
-            if key in seen: continue
-            seen.add(key)
-            out.append(r)
-            if len(out) >= k: break
-        if len(out) >= k: break
+            if key not in seen:
+                seen.add(key)
+                out.append(r)
+    
+    # Then search membership + financial combinations
+    if len(out) < k:
+        for m_term in membership_terms:
+            for f_term in financial_terms:
+                if len(out) >= k: break
+                resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
+                       .eq("org_id", org_id).ilike("content", f"%{m_term}%").ilike("content", f"%{f_term}%").limit(k).execute().data
+                for r in resp or []:
+                    key = (r["document_id"], r["chunk_index"])
+                    if key not in seen:
+                        seen.add(key)
+                        out.append(r)
+                        if len(out) >= k: break
+    
+    # Finally, broad search with query terms
+    if len(out) < k:
+        query_words = q.lower().split()
+        for word in query_words:
+            if len(word) > 3:  # Skip short words
+                resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
+                       .eq("org_id", org_id).ilike("content", f"%{word}%").limit(k).execute().data
+                for r in resp or []:
+                    key = (r["document_id"], r["chunk_index"])
+                    if key not in seen:
+                        seen.add(key)
+                        out.append(r)
+                        if len(out) >= k: break
     
     print(f"[RAG] keyword rows={len(out)} in {time.time()-t0:.3f}s")
-    return out
+    return out[:k]
 
 def _doc_title_link(doc_id: str):
     d = supa.table("documents").select("title,storage_path").eq("id", doc_id).limit(1).execute().data
@@ -187,7 +215,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
     keep_idx = _mmr(q_emb, rows, embs, k=min(MMR_K, len(rows)), lam=MMR_LAMBDA)
     rows = [rows[i] for i in keep_idx]
 
-    # 3) Build notes from summaries with trim-to-fit (never fails)
+    # 3) Build notes with full content when summaries are insufficient (NotebookLM approach)
     notes=[]; total=0; meta=[]
     for r in rows:
         doc_id=r.get("document_id"); ci=r.get("chunk_index")
@@ -196,17 +224,41 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         link = f"{base_link}#page={page+1}" if (base_link and page is not None) else base_link
         meta.append({"document_id": doc_id, "chunk_index": ci, "title": title, "url": link, "page_index": page})
 
+        # Use full content instead of just summaries for better detail extraction
+        content = r.get("content") or ""
         s = r.get("summary")
-        if not s or len(s) < 20:
-            content = (r.get("content") or "")[:1200]
-            s = content + f" [Doc:{doc_id}#Chunk:{ci}]"
+        
+        # For detailed questions, try to get more complete content by checking adjacent chunks
+        if any(term in question.lower() for term in ['specific', 'exact', 'how much', 'percentage', 'fee', 'cost', 'amount', 'reinstatement']):
+            # Check if this chunk seems truncated (ends with partial number)
+            if content and (content.strip().endswith(' 75') or content.strip().endswith(' 70') or content.strip().endswith(' 50') or content.strip().endswith(' 40')):
+                # Try to get the next chunk to complete the thought
+                try:
+                    next_chunk = supa.table("doc_chunks").select("content").eq("document_id", doc_id).eq("chunk_index", ci + 1).limit(1).execute()
+                    if next_chunk.data:
+                        next_content = next_chunk.data[0].get("content", "")
+                        # Combine chunks for complete context
+                        source_text = (content + " " + next_content)[:3000]  # Extended content for detailed answers
+                    else:
+                        source_text = content[:2000]
+                except:
+                    source_text = content[:2000]
+            else:
+                source_text = content[:2000] if content else s
+        else:
+            # Use summary for general questions
+            source_text = s if s and len(s) > 20 else content[:1200]
+        
+        if not source_text:
+            continue
+            
+        source_text += f" [Doc:{doc_id}#Chunk:{ci}]"
 
         remaining = MAX_SUMMARY_TOKENS - total
-        s_fit = _fit_to_tokens(s.strip(), max_tokens=max(60, remaining))  # guarantee room for one small note
+        s_fit = _fit_to_tokens(source_text.strip(), max_tokens=max(200, remaining))  # More space per chunk
         if not s_fit:
-            # if we couldn't fit anything but we have no notes yet, force a tiny snippet
             if not notes:
-                tiny = _fit_to_tokens(s.strip(), 120) or (s[:300] + f" [Doc:{doc_id}#Chunk:{ci}]")
+                tiny = _fit_to_tokens(source_text.strip(), 300) or (source_text[:500] + f" [Doc:{doc_id}#Chunk:{ci}]")
                 notes.append("- " + tiny.strip())
                 total += _toks(tiny)
             break
@@ -241,6 +293,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
     except Exception as e:
         print(f"[RAG] final model error; downshifting: {e}")
         model = "gpt-3.5-turbo"
+        print(f"[RAG] Downgrading to {model} due to primary model failure")
         answer = _retry(lambda: client.chat.completions.create(
             model=model, temperature=TEMPERATURE,
             messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],

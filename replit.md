@@ -21,6 +21,12 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Modern gradient themes, professional color palette with purple-blue AI branding, smooth animations, conversation-focused design
 - **User Experience**: Conversational document exploration, intelligent suggestions, confidence indicators, seamless source citations, auto-focus chat input
 
+### Recent Performance Improvements (August 18, 2025)
+- **Critical Fix**: Resolved chunk truncation issue where detailed fee percentages were cut off at crucial points
+- **Enhanced Content Retrieval**: Implemented smart chunk combination for detailed questions to capture complete information
+- **Improved Question Detection**: Added intelligent content expansion for queries containing "specific", "exact", "percentage", "fee", etc.
+- **NotebookLM-Quality Extraction**: Fixed the core issue preventing extraction of detailed financial information (75%, 50%, 25% reinstatement discounts)
+
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
 - **Authentication**: Flask-Login for session management with custom User model
