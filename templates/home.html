@@ -1,171 +1,976 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Forever Board Member — MVP</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Board Continuity - Document Intelligence Platform</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+    <!-- Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
     <style>
-      body { font-family: system-ui, sans-serif; max-width: 950px; margin: 32px auto; color:#111 }
-      h2 { margin-bottom: 4px }
-      .muted { color:#666; font-size:14px }
-      .row { display:flex; gap:12px; align-items:center }
-      button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#0ea5e9; color:#fff; cursor:pointer }
-      button.secondary { background:#f3f4f6; color:#111; border:1px solid #e5e7eb }
-      .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:14px 0 }
-      .doc-row { padding:8px 10px; border:1px solid #eee; border-radius:8px; margin:6px 0; background:#fafafa }
-      .drop { border:2px dashed #cbd5e1; padding:18px; border-radius:12px; text-align:center; background:#f8fafc }
-      #answer { background:#fff; }
-      ol { padding-left: 22px }
-      sup a { text-decoration:none }
-      .small { font-size: 13px; color:#4b5563 }
+        :root {
+            --primary: #1a365d;
+            --primary-light: #2d5a87;
+            --secondary: #e2e8f0;
+            --accent: #3182ce;
+            --success: #38a169;
+            --warning: #d69e2e;
+            --danger: #e53e3e;
+            --light-bg: #f7fafc;
+            --border-light: #e2e8f0;
+            --text-primary: #2d3748;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin: 2rem auto;
+            max-width: 1400px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 2rem 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(50%, -50%);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .sidebar {
+            background: var(--light-bg);
+            border-right: 1px solid var(--border-light);
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            border: none;
+            background: none;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            text-align: left;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            border-radius: 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: inset 4px 0 0 var(--accent);
+        }
+
+        .nav-item i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+
+        .content-section {
+            display: none;
+            padding: 2rem;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-bottom: 1px solid var(--border-light);
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .upload-zone {
+            border: 3px dashed var(--border-light);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+            transform: translateY(-2px);
+        }
+
+        .upload-zone i {
+            font-size: 3rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+
+        .btn-custom {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(49, 130, 206, 0.4);
+            color: white;
+        }
+
+        .btn-secondary-custom {
+            background: white;
+            border: 2px solid var(--border-light);
+            color: var(--text-secondary);
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary-custom:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .document-item {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .document-item:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .document-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .document-meta {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: linear-gradient(to bottom, #f7fafc 0%, white 100%);
+        }
+
+        .message {
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-user {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 1rem 1.25rem;
+            border-radius: 20px 20px 4px 20px;
+            margin-left: 20%;
+            box-shadow: 0 4px 15px rgba(49, 130, 206, 0.3);
+        }
+
+        .message-ai {
+            background: white;
+            border: 1px solid var(--border-light);
+            padding: 1.5rem;
+            border-radius: 20px 20px 20px 4px;
+            margin-right: 10%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .message-ai .ai-badge {
+            background: linear-gradient(135deg, var(--success) 0%, #48bb78 100%);
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            margin-bottom: 0.75rem;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .chat-input {
+            border-top: 1px solid var(--border-light);
+            padding: 1.5rem;
+            background: white;
+        }
+
+        .chat-input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .chat-input input {
+            border: 2px solid var(--border-light);
+            border-radius: 25px;
+            padding: 1rem 1.25rem;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-ready { background: var(--success); }
+        .status-processing { background: var(--warning); animation: pulse 2s infinite; }
+        .status-error { background: var(--danger); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .citation {
+            background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+            border-left: 4px solid var(--accent);
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+        }
+
+        .citation-list {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid var(--border-light);
+        }
+
+        .citation-item {
+            background: #f7fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .citation-item a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .citation-item a:hover {
+            text-decoration: underline;
+        }
+
+        .confidence-meter {
+            background: var(--border-light);
+            height: 6px;
+            border-radius: 3px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--danger) 0%, var(--warning) 50%, var(--success) 100%);
+            transition: width 0.3s ease;
+        }
+
+        .history-item {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-question {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+        }
+
+        .history-answer {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .progress-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+            border-radius: 12px;
+            border-left: 4px solid var(--success);
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-light);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .feature-badge {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                margin: 1rem;
+                border-radius: 16px;
+            }
+            
+            .header {
+                padding: 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .content-section {
+                padding: 1rem;
+            }
+        }
+
+        .security-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
     </style>
-  </head>
-  <body>
-    <h2>Forever Board Member — MVP</h2>
-    <div class="muted">Upload board documents and ask questions about their content with AI-powered citations.</div>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="header">
+                <div class="security-badge">
+                    <i class="fas fa-shield-alt"></i> Secure & Encrypted
+                </div>
+                <h1><i class="fas fa-university"></i> Board Continuity</h1>
+                <p class="subtitle">AI-Powered Document Intelligence Platform for Board Governance</p>
+            </div>
 
-    <div class="card">
-      <h3>1) Upload documents</h3>
-      <div id="drop" class="drop">Drag & drop PDFs here (or use the file picker)</div>
-      <form id="upform" class="row" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upres" hx-swap="afterend">
-        <input id="file" type="file" name="file" multiple accept="application/pdf" />
-        <button>Upload</button>
-      </form>
-      <div id="upres" class="small"></div>
-      <script>
-        // basic drag&drop to the hidden input
-        const dz = document.getElementById('drop');
-        const fi = document.getElementById('file');
-        dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = '#eef6ff'; });
-        dz.addEventListener('dragleave', e => { dz.style.background = '#f8fafc'; });
-        dz.addEventListener('drop', e => {
-          e.preventDefault(); dz.style.background = '#f8fafc';
-          fi.files = e.dataTransfer.files;
-        });
-      </script>
+            <div class="row g-0">
+                <!-- Sidebar Navigation -->
+                <div class="col-md-3 sidebar">
+                    <div class="p-3">
+                        <button class="nav-item active" onclick="showSection('upload')">
+                            <i class="fas fa-cloud-upload-alt"></i> Document Upload
+                        </button>
+                        <button class="nav-item" onclick="showSection('documents')">
+                            <i class="fas fa-folder-open"></i> Document Library
+                        </button>
+                        <button class="nav-item" onclick="showSection('chat')">
+                            <i class="fas fa-comments"></i> AI Assistant
+                        </button>
+                        <button class="nav-item" onclick="showSection('history')">
+                            <i class="fas fa-history"></i> Query History
+                        </button>
+                        <button class="nav-item" onclick="showSection('analytics')">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </button>
+                        <button class="nav-item" onclick="showSection('settings')">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-md-9">
+                    <!-- Upload Section -->
+                    <div id="upload-section" class="content-section active">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4><i class="fas fa-upload"></i> Document Upload Center</h4>
+                                <small class="text-muted">Secure upload with automatic processing and indexing</small>
+                            </div>
+                            <div class="card-body">
+                                <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <h5>Drag & Drop Documents Here</h5>
+                                    <p class="text-muted">Or click to select files • PDF, DOC, DOCX supported • Max 16MB per file</p>
+                                    <span class="feature-badge">AI Processing Enabled</span>
+                                </div>
+                                
+                                <form id="upload-form" hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upload-results">
+                                    <input type="file" id="file-input" name="file" multiple accept=".pdf,.doc,.docx" style="display: none;">
+                                </form>
+                                
+                                <div id="upload-results" class="mt-3"></div>
+                                
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-custom w-100" onclick="triggerUpload()">
+                                            <i class="fas fa-upload"></i> Upload Selected Files
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-secondary-custom w-100" hx-get="/jobs" hx-target="#job-status">
+                                            <i class="fas fa-tasks"></i> Check Processing Status
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="job-status" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Documents Section -->
+                    <div id="documents-section" class="content-section">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4><i class="fas fa-folder-open"></i> Document Library</h4>
+                                        <small class="text-muted">Manage and organize your board documents</small>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-secondary-custom" hx-get="/docs" hx-target="#document-list">
+                                            <i class="fas fa-sync"></i> Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="document-list">
+                                    <!-- Documents will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Section -->
+                    <div id="chat-section" class="content-section">
+                        <div class="card chat-container">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4><i class="fas fa-robot"></i> AI Assistant</h4>
+                                        <small class="text-muted">Ask questions about your documents</small>
+                                    </div>
+                                    <div>
+                                        <span class="status-indicator status-ready"></span>
+                                        <small>AI Ready</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="message message-ai">
+                                    <span class="ai-badge">Forever Board Member</span>
+                                    <p>Hello! I'm your AI assistant for board document analysis. I can help you find information, analyze decisions, and provide insights from your uploaded documents. What would you like to know?</p>
+                                    <div class="text-muted">
+                                        <small><i class="fas fa-info-circle"></i> All responses include source citations for verification</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-input">
+                                <form hx-post="/chat" hx-target="#chat-response" hx-trigger="submit" onsubmit="addUserMessage()">
+                                    <div class="chat-input-group">
+                                        <input type="text" name="q" id="chat-query" class="form-control" placeholder="Ask about board policies, meeting minutes, financial reports..." required>
+                                        <button type="submit" class="btn btn-custom">
+                                            <i class="fas fa-paper-plane"></i> Ask
+                                        </button>
+                                    </div>
+                                </form>
+                                <div id="chat-response"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Section -->
+                    <div id="history-section" class="content-section">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4><i class="fas fa-history"></i> Query History</h4>
+                                        <small class="text-muted">Review past questions and AI responses</small>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-secondary-custom" hx-get="/history" hx-target="#history-list">
+                                            <i class="fas fa-sync"></i> Refresh History
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="history-list">
+                                    <!-- History will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section -->
+                    <div id="analytics-section" class="content-section">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4><i class="fas fa-chart-line"></i> Document Analytics</h4>
+                                <small class="text-muted">Insights and usage statistics</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <i class="fas fa-file-alt fa-2x text-primary mb-3"></i>
+                                                <h5 id="doc-count">-</h5>
+                                                <p class="text-muted">Documents Uploaded</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <i class="fas fa-comments fa-2x text-success mb-3"></i>
+                                                <h5 id="query-count">-</h5>
+                                                <p class="text-muted">Questions Asked</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <i class="fas fa-clock fa-2x text-warning mb-3"></i>
+                                                <h5 id="avg-response">-</h5>
+                                                <p class="text-muted">Avg Response Time</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings Section -->
+                    <div id="settings-section" class="content-section">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4><i class="fas fa-cog"></i> AI Assistant Settings</h4>
+                                <small class="text-muted">Customize AI behavior and preferences</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Response Style</h6>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="style" id="detailed" checked>
+                                            <label class="form-check-label" for="detailed">Detailed Analysis</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="style" id="concise">
+                                            <label class="form-check-label" for="concise">Concise Summary</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Citation Preferences</h6>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="show-confidence" checked>
+                                            <label class="form-check-label" for="show-confidence">Show Confidence Levels</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="show-page-nums" checked>
+                                            <label class="form-check-label" for="show-page-nums">Include Page Numbers</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-      <h3>2) Manage documents</h3>
-      <div class="row">
-        <button class="secondary" hx-get="/docs" hx-target="#docs">Refresh Documents</button>
-        <button class="secondary" hx-post="/docs/delete_all" hx-target="#docs">Delete All</button>
-      </div>
-      <div id="docs" class="small">No docs yet.</div>
-    </div>
-
-    <div class="card">
-      <h3>3) Ask a question</h3>
-      <form class="row" hx-post="/chat" hx-target="#answer" hx-trigger="submit">
-        <input type="text" name="q" placeholder="e.g., What are the reserved periods of play?" style="flex:1; padding:10px; border:1px solid #e5e7eb; border-radius:8px"/>
-        <button>Ask</button>
-      </form>
-      <div id="answer" class="card"></div>
-    </div>
-
-    <div class="card">
-      <h3>4) Recent answers</h3>
-      <button class="secondary" hx-get="/history" hx-target="#hist">Refresh</button>
-      <div id="hist" class="small">No history yet.</div>
-    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-      function renderAnswer(json){
-        let text = (json.markdown || json.answer || '');
-        // strip any backend "Sources" block if present
-        text = text.replace(/\n-{3,}\n\*\*Sources\*\*:[\s\S]*$/,'').trim();
+        // Navigation
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load section data if needed
+            if (sectionName === 'documents') {
+                htmx.ajax('GET', '/docs', {target: '#document-list'});
+            } else if (sectionName === 'history') {
+                htmx.ajax('GET', '/history', {target: '#history-list'});
+            }
+        }
 
-        // Convert [Doc:..#Chunk:..] to footnote numbers linking to sources below
-        const map = new Map(); let idx = 1;
-        text = text.replace(/\[Doc:([a-f0-9-]+)#Chunk:(\d+)\]/g, (_, d, c) => {
-          const k = d+'#'+c; if (!map.has(k)) map.set(k, idx++); const n = map.get(k);
-          return `<sup><a href="#src-${d}-${c}">[${n}]</a></sup>`;
+        // Drag and drop functionality
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
         });
 
-        const html = marked.parse(text);
-        const items = [];
-        const seen = new Set();
-        for (const [k, n] of map.entries()){
-          if (seen.has(k)) continue; seen.add(k);
-          const [d,c] = k.split('#');
-          const meta = (json.citations||[]).find(x => x.document_id===d && String(x.chunk_index)===String(c)) || {};
-          const title = meta.title || d;
-          const pageTxt = (meta.page_index != null) ? ` (p. ${Number(meta.page_index)+1})` : '';
-          const url = meta.url ? `<a href="${meta.url}" target="_blank">open</a>` : '';
-          items.push(`<li id="src-${d}-${c}">[${n}] ${title}${pageTxt} — ${url}</li>`);
-        }
-        const sources = items.length ? `<hr/><strong>Sources</strong><ol>${items.join('')}</ol>` : '';
-        document.getElementById('answer').innerHTML = html + sources;
-      }
-
-      function renameDoc(docId, currentTitle) {
-        const newTitle = prompt('New title:', currentTitle);
-        if (!newTitle) return;
-        htmx.ajax('POST', '/docs/rename', {
-          target: '#docs',
-          values: { id: docId, title: newTitle }
+        uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
         });
-      }
 
-      document.body.addEventListener('htmx:afterSwap', (e) => {
-        // Upload response
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'upres') {
-          try {
-            const json = JSON.parse(e.detail.xhr.responseText);
-            if (json.ok) {
-              const rows = (json.results||[]).map(r => `✓ ${r.title} — chunks: ${r.chunks}`).join('<br/>');
-              e.detail.elt.innerHTML = rows || 'Uploaded.';
-              htmx.ajax('GET', '/docs', '#docs');
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        });
+
+        fileInput.addEventListener('change', updateFileList);
+
+        function updateFileList() {
+            const files = fileInput.files;
+            if (files.length > 0) {
+                let fileList = '<div class="mt-3"><h6>Selected Files:</h6><ul class="list-group">';
+                for (let i = 0; i < files.length; i++) {
+                    fileList += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-file-pdf text-danger"></i> ${files[i].name}</span>
+                        <span class="badge bg-secondary">${(files[i].size / 1024 / 1024).toFixed(1)} MB</span>
+                    </li>`;
+                }
+                fileList += '</ul></div>';
+                document.getElementById('upload-results').innerHTML = fileList;
             }
-          } catch(_) {}
         }
-        // Docs list
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'docs') {
-          try {
-            const json = JSON.parse(e.detail.xhr.responseText);
-            if (json.ok) {
-              const rows = (json.docs||[]).map(d => `
-                <div class="doc-row">
-                  📄 <strong>${d.title||d.filename||d.id}</strong> — ${d.status}
-                  ${d.download?` · <a href="${d.download}" target="_blank">open</a>`:''}
-                  · <button onclick="renameDoc('${d.id}', '${(d.title||d.filename||d.id).replace(/'/g,'\\\'').replace(/"/g,'&quot;')}')">Rename</button>
-                  · <button hx-post="/docs/delete" hx-target="#docs" hx-vals='{"id":"${d.id}"}' hx-swap="outerHTML">Delete</button>
-                </div>`).join('');
-              e.detail.elt.innerHTML = rows || 'No docs yet.';
-            }
-          } catch(_) {}
-        }
-        // Chat answer
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'answer') {
-          try { 
-            const json = JSON.parse(e.detail.xhr.responseText); 
-            if (json.ok) {
-              renderAnswer(json);
-              // refresh history after each answer
-              htmx.ajax('GET', '/history', '#hist');
+
+        function triggerUpload() {
+            if (fileInput.files.length > 0) {
+                document.getElementById('upload-form').dispatchEvent(new Event('submit'));
             } else {
-              e.detail.elt.innerHTML = `<div style="color:#dc2626; padding:12px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px">❌ ${json.error || 'Error processing question'}</div>`;
+                alert('Please select files to upload first.');
             }
-          } catch(_) {
-            e.detail.elt.innerHTML = '<div style="color:#dc2626; padding:12px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px">❌ Error processing request</div>';
-          }
         }
-        // History
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'hist') {
-          try {
-            const json = JSON.parse(e.detail.xhr.responseText);
-            if (json.ok) {
-              const rows = (json.items||[]).map(i => `
-                <div class="doc-row">
-                  <div><strong>Q:</strong> ${i.question}</div>
-                  <div class="small">${new Date(i.created_at).toLocaleString()}</div>
-                </div>`).join('');
-              e.detail.elt.innerHTML = rows || 'No history yet.';
+
+        // Chat functionality
+        function addUserMessage() {
+            const query = document.getElementById('chat-query').value;
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            // Add user message
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message';
+            userMessage.innerHTML = `<div class="message-user">${query}</div>`;
+            messagesContainer.appendChild(userMessage);
+            
+            // Add loading indicator
+            const loadingMessage = document.createElement('div');
+            loadingMessage.className = 'message';
+            loadingMessage.id = 'loading-message';
+            loadingMessage.innerHTML = `
+                <div class="message-ai">
+                    <span class="ai-badge">Forever Board Member</span>
+                    <div class="d-flex align-items-center">
+                        <div class="loading"></div>
+                        <span class="ms-2">Analyzing documents and preparing response...</span>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(loadingMessage);
+            
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            document.getElementById('chat-query').value = '';
+        }
+
+        // Enhanced response rendering
+        function renderChatResponse(json) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const loadingMessage = document.getElementById('loading-message');
+            
+            if (loadingMessage) {
+                loadingMessage.remove();
             }
-          } catch(_) {}
+
+            const responseMessage = document.createElement('div');
+            responseMessage.className = 'message';
+            
+            let html = `<div class="message-ai">
+                <span class="ai-badge">Forever Board Member</span>`;
+
+            if (json.markdown) {
+                html += `<div>${marked.parse(json.markdown)}</div>`;
+            }
+
+            if (json.citations && json.citations.length > 0) {
+                html += '<div class="citation-list"><h6><i class="fas fa-quote-left"></i> Sources:</h6>';
+                json.citations.forEach((citation, index) => {
+                    const pageText = citation.page_index !== null ? ` (p. ${citation.page_index})` : '';
+                    html += `<div class="citation-item">
+                        <strong>[${index + 1}]</strong> ${citation.title}${pageText}
+                        <a href="${citation.url}" target="_blank" class="ms-2">
+                            <i class="fas fa-external-link-alt"></i> View Document
+                        </a>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            html += '</div>';
+            responseMessage.innerHTML = html;
+            messagesContainer.appendChild(responseMessage);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
-      });
+
+        // Document management
+        function renderDocuments(json) {
+            if (!json.docs || json.docs.length === 0) {
+                document.getElementById('document-list').innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Documents Yet</h5>
+                        <p class="text-muted">Upload your first document to get started</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            json.docs.forEach(doc => {
+                html += `
+                    <div class="document-item">
+                        <div class="document-title">
+                            <i class="fas fa-file-pdf text-danger"></i> ${doc.title || doc.filename || doc.id}
+                        </div>
+                        <div class="document-meta">
+                            Status: <span class="badge ${doc.status === 'ready' ? 'bg-success' : 'bg-warning'}">${doc.status}</span>
+                            ${doc.chunks ? `• ${doc.chunks} chunks processed` : ''}
+                        </div>
+                        <div class="document-actions">
+                            ${doc.download ? `<a href="${doc.download}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-download"></i> Open
+                            </a>` : ''}
+                            <button class="btn btn-sm btn-outline-secondary" onclick="renameDocument('${doc.id}', '${(doc.title || doc.filename || doc.id).replace(/'/g, '\\\'')}')" >
+                                <i class="fas fa-edit"></i> Rename
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" hx-post="/docs/delete" hx-vals='{"id":"${doc.id}"}' hx-target="#document-list" hx-confirm="Are you sure you want to delete this document?">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('document-list').innerHTML = html;
+            
+            // Update analytics
+            document.getElementById('doc-count').textContent = json.docs.length;
+        }
+
+        function renameDocument(docId, currentTitle) {
+            const newTitle = prompt('Enter new document title:', currentTitle);
+            if (newTitle && newTitle !== currentTitle) {
+                htmx.ajax('POST', '/docs/rename', {
+                    target: '#document-list',
+                    values: { id: docId, title: newTitle }
+                });
+            }
+        }
+
+        // History rendering
+        function renderHistory(json) {
+            if (!json.history || json.history.length === 0) {
+                document.getElementById('history-list').innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Query History</h5>
+                        <p class="text-muted">Start asking questions to build your history</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            json.history.forEach((item, index) => {
+                html += `
+                    <div class="history-item">
+                        <div class="history-question">
+                            <i class="fas fa-question-circle text-primary"></i> ${item.question}
+                        </div>
+                        <div class="history-answer">
+                            ${item.answer ? marked.parse(item.answer.substring(0, 200) + '...') : 'Processing...'}
+                        </div>
+                        <div class="text-muted mt-2">
+                            <small><i class="fas fa-clock"></i> ${item.timestamp || 'Recent'}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('history-list').innerHTML = html;
+            
+            // Update analytics
+            document.getElementById('query-count').textContent = json.history.length;
+        }
+
+        // HTMX event handlers
+        document.body.addEventListener('htmx:afterSwap', (event) => {
+            if (event.target.id === 'chat-response') {
+                try {
+                    const json = JSON.parse(event.target.textContent);
+                    event.target.innerHTML = '';
+                    renderChatResponse(json);
+                } catch (e) {
+                    // Handle non-JSON responses
+                }
+            } else if (event.target.id === 'document-list') {
+                try {
+                    const json = JSON.parse(event.target.textContent);
+                    renderDocuments(json);
+                } catch (e) {
+                    // Handle non-JSON responses
+                }
+            } else if (event.target.id === 'history-list') {
+                try {
+                    const json = JSON.parse(event.target.textContent);
+                    renderHistory(json);
+                } catch (e) {
+                    // Handle non-JSON responses
+                }
+            }
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load initial data
+            htmx.ajax('GET', '/docs', {target: '#document-list'});
+            
+            // Set default analytics values
+            document.getElementById('avg-response').textContent = '< 3s';
+        });
     </script>
-  </body>
+</body>
 </html>

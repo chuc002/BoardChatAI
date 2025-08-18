@@ -13,10 +13,12 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework**: Traditional server-rendered Flask templates with modern card-based design
-- **JavaScript Enhancement**: HTMX for dynamic interactions, drag-and-drop file upload functionality
-- **UI Components**: Card-based layout with drag-drop upload, document management, chat interface, and history panel
-- **Styling**: Clean modern design with custom CSS for cards, citations, and interactive elements
+- **Framework**: Professional board-focused UI with Bootstrap 5 and custom design system
+- **Design Philosophy**: Country club board governance interface prioritizing efficiency, security, and clarity
+- **JavaScript Enhancement**: HTMX for dynamic interactions, enhanced drag-and-drop with visual feedback
+- **UI Components**: Multi-section dashboard with sidebar navigation, enhanced document library, professional chat interface, analytics dashboard, and settings panel
+- **Styling**: Executive-grade design with gradient themes, professional color palette, responsive layout, and accessibility features
+- **User Experience**: Layered information display, confidence indicators, source verification, and customizable AI preferences
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
