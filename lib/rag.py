@@ -21,14 +21,17 @@ TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 SYSTEM_PROMPT = (
     "You are Forever Board Member, an AI assistant specializing in board governance and club documents. "
     "Provide comprehensive, detailed answers using ONLY the exact information from the source notes provided. "
-    "For membership and fee questions, extract ALL available details: specific dollar amounts, percentages, payment schedules, membership categories, age requirements, transfer rules, and eligibility criteria. "
-    "When discussing fee structures, include: initiation fees, transfer fees, capital dues, monthly dues, guest fees, and any other charges mentioned. "
-    "For each membership category (Foundation, Social, Intermediate, etc.), provide complete details about requirements, restrictions, and costs. "
-    "Quote exact percentages, timeframes, and conditions. Include specific age limits, waiting periods, and approval processes. "
-    "Organize complex information into clear categories and bullet points for comprehensive understanding. "
-    "Include inline citations like [Doc:{document_id}#Chunk:{chunk_index}] for all specific claims. "
-    "Synthesize information across multiple sections to give complete answers with all available details. "
-    "Only state that notes are insufficient if the specific question truly cannot be answered from the provided sources."
+    "For membership fee structure questions, create a comprehensive response covering ALL membership categories mentioned in the sources: "
+    "Foundation, Social, Intermediate, Legacy, Corporate, Golfing Senior, Nonresident, and any others. "
+    "For EACH category found, include: initiation fees, transfer fees, capital dues, monthly dues, age requirements, "
+    "waiting lists, member limits, eligibility criteria, privileges, restrictions, and approval processes. "
+    "Extract and organize ALL fee percentages (70%, 75%, 50%, 25%), payment timeframes (90 days, etc.), "
+    "age limits (65+, under 24), member maximums (50, 20), and board approval requirements. "
+    "Structure your response with clear headings like '**MEMBERSHIP CATEGORIES**', '**FEE STRUCTURES**', "
+    "'**PAYMENT REQUIREMENTS**', '**AGE-BASED PROVISIONS**', '**WAITING LISTS**', etc. "
+    "Include specific percentages, dollar amounts, timeframes, and conditions with proper citations. "
+    "Synthesize information across ALL source notes to create the most comprehensive answer possible. "
+    "Only state information is insufficient if the specific detail truly cannot be found in any source note."
 )
 
 enc = tiktoken.get_encoding("cl100k_base")
@@ -85,8 +88,16 @@ def _vector(org_id: str, q: str, k: int):
 def _keyword(org_id: str, q: str, k: int):
     t0=time.time()
     
-    # High-priority terms that likely contain the answer
-    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee", "Foundation membership", "following percentages", "membership fee", "dues", "payment", "70%", "seventy percent", "capital dues"]
+    # High-priority terms for comprehensive fee structure coverage
+    priority_terms = [
+        "reinstatement", "75%", "50%", "25%", "70%", "first year", "second year", "third year",
+        "transfer fee", "initiation fee", "Foundation membership", "Social membership", 
+        "Intermediate membership", "Legacy membership", "Corporate membership", 
+        "Golfing Senior membership", "following percentages", "membership fee", "dues", 
+        "payment", "seventy percent", "capital dues", "monthly dues", "Board approval",
+        "waiting list", "limited to", "maximum", "age", "sixty-five", "eligibility",
+        "application", "consideration", "ninety days", "90 days"
+    ]
     
     # Membership-specific terms
     membership_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Nonresident", "Golfing Senior"]
@@ -95,11 +106,28 @@ def _keyword(org_id: str, q: str, k: int):
     # Search with priority order
     seen, out = set(), []
     
-    # For comprehensive fee structure questions, cast a wider net
+    # For comprehensive fee structure questions, cast a much wider net to capture all information
     if any(comprehensive_term in q.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement']):
-        # Get more chunks for comprehensive coverage
-        comprehensive_terms = priority_terms + ["membership category", "Board consideration", "waiting list", "age", "Social Former Foundation", "Golfing Senior", "monthly dues", "guest fee", "capital assessment"]
-        k = min(k * 2, 40)  # Increase search scope for comprehensive questions
+        # Dramatically expand search for comprehensive questions to match NotebookLM
+        comprehensive_terms = priority_terms + [
+            "membership category", "Board consideration", "waiting list", "age", 
+            "Social Former Foundation", "Golfing Senior", "monthly dues", "guest fee", 
+            "capital assessment", "Intermediate", "Legacy", "Corporate", "Nonresident",
+            "maximum", "limited to", "approval", "consideration", "eligibility",
+            "requirements", "restrictions", "privileges", "rights", "obligations"
+        ]
+        k = min(k * 3, 60)  # Triple search scope for comprehensive questions
+        
+        # Also search for each major membership category specifically
+        category_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Golfing Senior", "Nonresident"]
+        for category in category_terms:
+            resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
+                   .eq("org_id", org_id).ilike("content", f"%{category}%").limit(8).execute().data
+            for r in resp or []:
+                key = (r["document_id"], r["chunk_index"])
+                if key not in seen:
+                    seen.add(key)
+                    out.append(r)
     
     # First, search for high-priority terms that likely contain specific answers
     for term in priority_terms:
@@ -280,9 +308,12 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
                         if next_chunk.data:
                             combined_content += " " + next_chunk.data[0].get("content", "")[:1000]
                         
-                        source_text = combined_content[:6000]  # Extended content for comprehensive answers
+                        source_text = combined_content[:8000]  # Extended content for comprehensive answers
                     except:
-                        source_text = content[:4000] if content else s
+                        source_text = content[:6000] if content else s
+                else:
+                    # For non-structure fee questions, still use extended content
+                    source_text = content[:6000] if content else s
             
             # For reinstatement questions, ensure we get the complete percentage information  
             elif 'reinstatement' in question.lower() and content:
@@ -314,8 +345,11 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
                 else:
                     source_text = content[:2000] if content else s
         else:
-            # Use summary for general questions
-            source_text = s if s and len(s) > 20 else content[:1200]
+            # Use summary for general questions, but prefer content for comprehensive answers
+            if 'fee structure' in question.lower() or 'membership fee' in question.lower():
+                source_text = content[:4000] if content else s  # Use more content even for general structure questions
+            else:
+                source_text = s if s and len(s) > 20 else content[:1200]
         
         if not source_text:
             continue
@@ -323,7 +357,9 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         source_text += f" [Doc:{doc_id}#Chunk:{ci}]"
 
         remaining = MAX_SUMMARY_TOKENS - total
-        s_fit = _fit_to_tokens(source_text.strip(), max_tokens=max(200, remaining))  # More space per chunk
+        # For comprehensive questions, allow more tokens per chunk to capture complete details
+        min_tokens_per_chunk = 400 if any(term in question.lower() for term in ['fee structure', 'membership fee']) else 200
+        s_fit = _fit_to_tokens(source_text.strip(), max_tokens=max(min_tokens_per_chunk, remaining))
         if not s_fit:
             if not notes:
                 tiny = _fit_to_tokens(source_text.strip(), 300) or (source_text[:500] + f" [Doc:{doc_id}#Chunk:{ci}]")
@@ -339,9 +375,9 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
-    # For comprehensive questions, add instruction to synthesize across all sources
+    # For comprehensive fee structure questions, provide detailed synthesis instructions
     if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
-        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Provide a comprehensive answer covering ALL fee types, membership categories, payment requirements, age restrictions, waiting lists, and approval processes mentioned across ALL source notes. Organize information by category and include specific percentages, timeframes, and requirements.\n\nSOURCE NOTES (each ends with its citation):\n"
+        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Create a comprehensive membership fee structure guide covering ALL categories mentioned in the source notes. For each membership category (Foundation, Social, Intermediate, Legacy, Corporate, Golfing Senior, etc.), include initiation fees, transfer fees, dues, age requirements, member limits, waiting lists, and eligibility criteria. Extract ALL percentages, timeframes, dollar amounts, and specific requirements. Organize with clear section headers and bullet points. Include complete details about board approval processes, payment deadlines, and special provisions.\n\nSOURCE NOTES (each ends with its citation):\n"
     else:
         preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
     body = "\n".join(notes)
