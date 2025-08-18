@@ -99,6 +99,15 @@
         document.getElementById('answer').innerHTML = html + sources;
       }
 
+      function renameDoc(docId, currentTitle) {
+        const newTitle = prompt('New title:', currentTitle);
+        if (!newTitle) return;
+        htmx.ajax('POST', '/docs/rename', {
+          target: '#docs',
+          values: { id: docId, title: newTitle }
+        });
+      }
+
       document.body.addEventListener('htmx:afterSwap', (e) => {
         // Upload response
         if (e.detail && e.detail.elt && e.detail.elt.id === 'upres') {
@@ -120,11 +129,7 @@
                 <div class="doc-row">
                   📄 <strong>${d.title||d.filename||d.id}</strong> — ${d.status}
                   ${d.download?` · <a href="${d.download}" target="_blank">open</a>`:''}
-                  · <button onclick="(function(){
-                       const t = prompt('New title:', '${(d.title||d.filename||d.id).replace(/'/g,'\\'')}');
-                       if (!t) return;
-                       htmx.ajax('POST','/docs/rename',{target:'#docs',values:{id:'${d.id}', title:t}});
-                     })()">Rename</button>
+                  · <button onclick="renameDoc('${d.id}', '${(d.title||d.filename||d.id).replace(/'/g,'\\\'').replace(/"/g,'&quot;')}')">Rename</button>
                   · <button hx-post="/docs/delete" hx-target="#docs" hx-vals='{"id":"${d.id}"}' hx-swap="outerHTML">Delete</button>
                 </div>`).join('');
               e.detail.elt.innerHTML = rows || 'No docs yet.';
