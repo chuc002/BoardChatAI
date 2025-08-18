@@ -95,8 +95,8 @@ Preferred communication style: Simple, everyday language.
 - **MMR_K=8**: Final reranked results count after MMR filtering
 - **MMR_LAMBDA=0.55**: Diversity vs relevance balance (0.5-0.7, higher = more diverse)
 - **USE_VECTOR=1**: Enable vector search (set to 0 for keyword-only mode)
-- **MAX_SUMMARY_TOKENS=2400**: Token budget for building source notes from summaries
-- **MAX_FINAL_TOKENS=4800**: Maximum tokens allowed in final prompt to AI
+- **MAX_SUMMARY_TOKENS=3200**: Token budget for building source notes from summaries
+- **MAX_FINAL_TOKENS=5200**: Maximum tokens allowed in final prompt to AI
 - **CHAT_TEMPERATURE=0.2**: AI response creativity (0.0-1.0, lower = more factual)
 
 #### Development Environment Variables

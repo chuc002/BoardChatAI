@@ -13,8 +13,8 @@ USE_VECTOR     = os.getenv("USE_VECTOR", "1") not in ("0","false","False","no","
 MAX_CANDIDATES     = int(os.getenv("MAX_CANDIDATES", "16"))
 MMR_K              = int(os.getenv("MMR_K", "8"))
 MMR_LAMBDA         = float(os.getenv("MMR_LAMBDA", "0.55"))
-MAX_SUMMARY_TOKENS = int(os.getenv("MAX_SUMMARY_TOKENS", "2400"))
-MAX_FINAL_TOKENS   = int(os.getenv("MAX_FINAL_TOKENS", "4800"))
+MAX_SUMMARY_TOKENS = int(os.getenv("MAX_SUMMARY_TOKENS", "3200"))
+MAX_FINAL_TOKENS   = int(os.getenv("MAX_FINAL_TOKENS", "5200"))
 TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 # =================
 
@@ -36,6 +36,25 @@ def _retry(fn, tries=4, base=0.6):
         except Exception as e:
             last=e; time.sleep(base*(2**i))
     raise last
+
+def _fit_to_tokens(text: str, max_tokens: int) -> str:
+    if max_tokens <= 0:
+        return ""
+    # quick path
+    if _toks(text) <= max_tokens:
+        return text
+    # binary chop by characters until under budget
+    lo, hi = 0, len(text)
+    best = ""
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        cand = text[:mid]
+        if _toks(cand) <= max_tokens:
+            best = cand
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
 
 # ---------- Retrieval ----------
 def _vector(org_id: str, q: str, k: int):
@@ -153,7 +172,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
     keep_idx = _mmr(q_emb, rows, embs, k=min(MMR_K, len(rows)), lam=MMR_LAMBDA)
     rows = [rows[i] for i in keep_idx]
 
-    # 3) Build notes from summaries (fallback to trimmed content)
+    # 3) Build notes from summaries with trim-to-fit (never fails)
     notes=[]; total=0; meta=[]
     for r in rows:
         doc_id=r.get("document_id"); ci=r.get("chunk_index")
@@ -163,17 +182,26 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         meta.append({"document_id": doc_id, "chunk_index": ci, "title": title, "url": link, "page_index": page})
 
         s = r.get("summary")
-        if not s or len(s)<20:
+        if not s or len(s) < 20:
             content = (r.get("content") or "")[:1200]
             s = content + f" [Doc:{doc_id}#Chunk:{ci}]"
 
-        t=_toks(s)
-        if total + t > MAX_SUMMARY_TOKENS: break
-        notes.append("- " + s.strip())
-        total += t
+        remaining = MAX_SUMMARY_TOKENS - total
+        s_fit = _fit_to_tokens(s.strip(), max_tokens=max(60, remaining))  # guarantee room for one small note
+        if not s_fit:
+            # if we couldn't fit anything but we have no notes yet, force a tiny snippet
+            if not notes:
+                tiny = _fit_to_tokens(s.strip(), 120) or (s[:300] + f" [Doc:{doc_id}#Chunk:{ci}]")
+                notes.append("- " + tiny.strip())
+                total += _toks(tiny)
+            break
+        notes.append("- " + s_fit)
+        total += _toks(s_fit)
+        if total >= MAX_SUMMARY_TOKENS:
+            break
 
     if not notes:
-        return ("Could not build source notes within limits. Refine the question.", meta)
+        return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
     preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
