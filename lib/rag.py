@@ -430,7 +430,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         if not source_text:
             continue
             
-        source_text += f" [Doc:{doc_id}#Chunk:{ci}]"
+        source_text += f" [{len(meta) + 1}]"
 
         remaining = MAX_SUMMARY_TOKENS - total
         # For comprehensive questions, allow more tokens per chunk to capture complete details
@@ -438,7 +438,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         s_fit = _fit_to_tokens(source_text.strip(), max_tokens=max(min_tokens_per_chunk, remaining))
         if not s_fit:
             if not notes:
-                tiny = _fit_to_tokens(source_text.strip(), 300) or (source_text[:500] + f" [Doc:{doc_id}#Chunk:{ci}]")
+                tiny = _fit_to_tokens(source_text.strip(), 300) or (source_text[:500] + f" [{len(meta) + 1}]")
                 notes.append("- " + tiny.strip())
                 total += _toks(tiny)
             break
@@ -451,11 +451,11 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
-    # For comprehensive fee structure questions, use advanced tldw_chatbook inspired approach
+    # For comprehensive fee structure questions, use advanced tldw_chatbook inspired approach  
     if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
-        preamble = f"QUESTION: {question}\n\nCOMPREHENSIVE ANALYSIS INSTRUCTION: Create an exhaustively detailed, NotebookLM-quality response that demonstrates complete mastery of the source material. Extract and organize EVERY piece of relevant information:\n\n**FINANCIAL DETAILS EXTRACTION:**\n• ALL percentages (70%, 75%, 50%, 25%, 40%, 6%, 100%, 30%, 20%, 15%, 10%)\n• ALL fee amounts, payment deadlines, and billing procedures\n• ALL late fees, penalties, and financial obligations\n\n**MEMBERSHIP STRUCTURE ANALYSIS:**\n• EVERY membership category with complete initiation fee details\n• ALL transfer scenarios with exact conditions and percentages\n• ALL age requirements, member limits, and special provisions\n• ALL waiting list procedures and board approval processes\n\n**COMPREHENSIVE COVERAGE:**\n• ALL reinstatement rules with year-by-year percentage breakdowns\n• ALL food & beverage minimums with trimester requirements\n• ALL additional fees (lockers, storage, reciprocal clubs, corkage, etc.)\n• ALL special programs (Legacy, Corporate, Surviving Spouse, etc.)\n\n**PROFESSIONAL ORGANIZATION:**\nUse Roman numerals (I., II., III., IV., V., VI., VII.) for major sections:\nI. MEMBERSHIP CATEGORIES & INITIATION FEES\nII. TRANSFER FEES & SCENARIOS  \nIII. REINSTATEMENT PROVISIONS\nIV. PAYMENT & BILLING REQUIREMENTS\nV. AGE-BASED PROVISIONS & RESTRICTIONS\nVI. SPECIAL PROGRAMS & PROVISIONS\nVII. ADDITIONAL FEES & REQUIREMENTS\n\nInclude bullet points, specific citations, and double line breaks between sections. Be as thorough as the most comprehensive NotebookLM analysis.\n\nSOURCE NOTES (each ends with its citation):\n"
+        preamble = f"QUESTION: {question}\n\nCOMPREHENSIVE ANALYSIS INSTRUCTION: Create an exhaustively detailed, NotebookLM-quality response that demonstrates complete mastery of the source material. Extract and organize EVERY piece of relevant information:\n\n**FINANCIAL DETAILS EXTRACTION:**\n• ALL percentages (70%, 75%, 50%, 25%, 40%, 6%, 100%, 30%, 20%, 15%, 10%)\n• ALL fee amounts, payment deadlines, and billing procedures\n• ALL late fees, penalties, and financial obligations\n\n**MEMBERSHIP STRUCTURE ANALYSIS:**\n• EVERY membership category with complete initiation fee details\n• ALL transfer scenarios with exact conditions and percentages\n• ALL age requirements, member limits, and special provisions\n• ALL waiting list procedures and board approval processes\n\n**COMPREHENSIVE COVERAGE:**\n• ALL reinstatement rules with year-by-year percentage breakdowns\n• ALL food & beverage minimums with trimester requirements\n• ALL additional fees (lockers, storage, reciprocal clubs, corkage, etc.)\n• ALL special programs (Legacy, Corporate, Surviving Spouse, etc.)\n\n**PROFESSIONAL ORGANIZATION:**\nUse Roman numerals (I., II., III., IV., V., VI., VII.) for major sections:\nI. MEMBERSHIP CATEGORIES & INITIATION FEES\nII. TRANSFER FEES & SCENARIOS  \nIII. REINSTATEMENT PROVISIONS\nIV. PAYMENT & BILLING REQUIREMENTS\nV. AGE-BASED PROVISIONS & RESTRICTIONS\nVI. SPECIAL PROGRAMS & PROVISIONS\nVII. ADDITIONAL FEES & REQUIREMENTS\n\n**CITATION FORMAT:** Use simple numbered citations like [1], [2], [3] instead of complex document references. Be as thorough as the most comprehensive NotebookLM analysis.\n\nSOURCE NOTES (each ends with its citation):\n"
     else:
-        preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
+        preamble = f"QUESTION: {question}\n\nProvide a comprehensive response with simple numbered citations [1], [2], [3] for easy reference.\n\nSOURCE NOTES (each ends with its citation):\n"
     body = "\n".join(notes)
     prompt = preamble + body
     while _toks(prompt) > MAX_FINAL_TOKENS and len(notes) > 4:
