@@ -127,49 +127,79 @@ def _keyword(org_id: str, q: str, k: int):
     # Search with priority order
     seen, out = set(), []
     
-    # For comprehensive fee structure questions, use ultimate comprehensive extraction
-    if any(comprehensive_term in q.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement']):
+    # For comprehensive fee structure questions, use ultimate comprehensive extraction  
+    if any(comprehensive_term in q.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures', 'payment requirements', 'membership fees', 'fee', 'cost', 'payment', 'dues', 'structure', 'requirement', 'category', 'transfer', 'reinstatement']):
         # Get ALL chunks and rank by detail richness
         all_chunks_resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
                                .eq("org_id", org_id).execute().data
         
-        # Detail indicators for comprehensive extraction
-        detail_indicators = [
-            '70%', '75%', '50%', '25%', '40%', '6%', '100%',
-            'transfer fee', 'initiation fee', 'reinstatement',
-            'age 65', 'combined age', '90 days', '30 days',
-            'surviving spouse', 'corporate', 'divorce', 
-            'foundation', 'social', 'intermediate', 'legacy',
-            'food & beverage', 'trimester', 'late fee',
-            'board approval', 'waiting list', 'member limit',
-            'legacy program', 'designated', 'nonresident'
-        ]
+        # Detail indicators for comprehensive extraction (weighted scoring)
+        high_value_indicators = {
+            '70%': 10, '75%': 10, '50%': 10, '25%': 10, '40%': 8, '6%': 8, '100%': 6,
+            'transfer fee': 8, 'initiation fee': 8, 'reinstatement': 8,
+            'seventy percent': 9, 'seventy-five percent': 9, 'fifty percent': 9,
+            'Board pursuant to': 5, 'following percentages': 7, 'membership classification': 6,
+            'foundation membership': 6, 'social membership': 6, 'intermediate membership': 6,
+            'legacy membership': 6, 'corporate membership': 6, 'golfing senior': 6
+        }
         
-        # Score and rank chunks by comprehensive detail content
-        detailed_chunks = []
-        for chunk in all_chunks_resp or []:
-            content = chunk.get('content', '') or ''
-            if len(content) < 200:
-                continue
-                
-            detail_score = sum(1 for indicator in detail_indicators if indicator in content.lower())
+        # Score all chunks by detail richness with weighted scoring
+        scored_chunks = []
+        for chunk in all_chunks_resp:
+            content_text = chunk.get('content', '') 
+            summary_text = chunk.get('summary', '')
+            combined_text = (content_text + ' ' + summary_text).lower()
             
-            if detail_score >= 2:  # Must have at least 2 detail indicators
-                detailed_chunks.append({
+            if len(content_text) < 200:
+                continue
+            
+            # Calculate weighted detail score
+            detail_score = 0
+            for indicator, weight in high_value_indicators.items():
+                if indicator.lower() in combined_text:
+                    detail_score += weight
+            
+            # Additional scoring for comprehensive patterns
+            if 'seventy percent' in combined_text and 'transfer fee' in combined_text:
+                detail_score += 15  # High value combination
+            if len([pct for pct in ['70%', '75%', '50%', '25%'] if pct in combined_text]) >= 3:
+                detail_score += 12  # Multiple percentages = very valuable
+            if 'initiation fee' in combined_text and any(pct in combined_text for pct in ['70%', '75%', '50%']):
+                detail_score += 10  # Fee + percentage combination
+                
+            # Length bonus for comprehensive chunks
+            length_score = min(len(content_text) // 800, 8)
+            
+            total_score = detail_score + length_score
+            
+            if total_score >= 5:  # Lower threshold to capture more comprehensive content
+                scored_chunks.append({
+                    'score': total_score,
                     'chunk': chunk,
-                    'detail_score': detail_score
+                    'detail_score': detail_score,
+                    'length_score': length_score,
+                    'content_length': len(content_text)
                 })
         
-        # Sort by detail richness and take top chunks
-        detailed_chunks.sort(key=lambda x: x['detail_score'], reverse=True)
+        # Sort by comprehensive score and prioritize high-detail chunks
+        scored_chunks.sort(key=lambda x: (x['score'], x['content_length']), reverse=True)
         
-        # Add the most detailed chunks first
-        for chunk_info in detailed_chunks[:k]:
-            chunk = chunk_info['chunk']
-            key = (chunk["document_id"], chunk["chunk_index"])
-            if key not in seen:
-                seen.add(key)
+        print(f"[RAG] Comprehensive extraction found {len(scored_chunks)} rich chunks")
+        for i, scored_chunk in enumerate(scored_chunks[:3]):
+            chunk = scored_chunk['chunk']
+            content = chunk.get('content', '')
+            percentages = [pct for pct in ['70%', '75%', '50%', '25%', '40%'] if pct in content]
+            print(f"[RAG]   Chunk {i+1}: score={scored_chunk['score']}, len={scored_chunk['content_length']}, percentages={percentages}")
+        
+        # Add top comprehensive chunks first
+        for scored_chunk in scored_chunks[:k]:
+            chunk = scored_chunk['chunk']
+            chunk_id = f"{chunk['document_id']}#{chunk['chunk_index']}"
+            if chunk_id not in seen:
+                seen.add(chunk_id)
                 out.append(chunk)
+                if len(out) >= k:
+                    break
         
         # Also search for each major membership category specifically
         category_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Golfing Senior", "Nonresident"]
