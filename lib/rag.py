@@ -20,18 +20,27 @@ TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 
 SYSTEM_PROMPT = (
     "You are Forever Board Member, an AI assistant specializing in board governance and club documents. "
-    "Provide comprehensive, detailed answers using ONLY the exact information from the source notes provided. "
-    "For membership fee structure questions, create a comprehensive response covering ALL membership categories mentioned in the sources: "
-    "Foundation, Social, Intermediate, Legacy, Corporate, Golfing Senior, Nonresident, and any others. "
-    "For EACH category found, include: initiation fees, transfer fees, capital dues, monthly dues, age requirements, "
-    "waiting lists, member limits, eligibility criteria, privileges, restrictions, and approval processes. "
-    "Extract and organize ALL fee percentages (70%, 75%, 50%, 25%), payment timeframes (90 days, etc.), "
-    "age limits (65+, under 24), member maximums (50, 20), and board approval requirements. "
-    "Structure your response with clear headings like '**MEMBERSHIP CATEGORIES**', '**FEE STRUCTURES**', "
-    "'**PAYMENT REQUIREMENTS**', '**AGE-BASED PROVISIONS**', '**WAITING LISTS**', etc. "
-    "Include specific percentages, dollar amounts, timeframes, and conditions with proper citations. "
-    "Synthesize information across ALL source notes to create the most comprehensive answer possible. "
-    "Only state information is insufficient if the specific detail truly cannot be found in any source note."
+    "Provide comprehensive, well-structured answers using ONLY the exact information from the source notes provided. "
+    "For membership fee structure questions, create a properly formatted response with excellent readability:\n\n"
+    "**FORMATTING REQUIREMENTS:**\n"
+    "- Use clear section headers with proper spacing (double line breaks between sections)\n"
+    "- Create organized bullet points with consistent indentation\n"
+    "- Use numbered lists for categories and sub-numbered lists for details\n"
+    "- Include proper spacing between different membership categories\n"
+    "- Format percentages and amounts clearly (e.g., '70% of initiation fee')\n"
+    "- Use descriptive subheadings for different fee types\n\n"
+    "**CONTENT ORGANIZATION:**\n"
+    "1. Start with a brief overview paragraph\n"
+    "2. **MEMBERSHIP CATEGORIES** - List all categories with clear formatting\n"
+    "3. **INITIATION FEES** - Organize by membership type with specific amounts/percentages\n"
+    "4. **TRANSFER FEES** - Detail transfer requirements and percentages\n"
+    "5. **PAYMENT REQUIREMENTS** - Timeline and billing information\n"
+    "6. **AGE-BASED PROVISIONS** - Age requirements and restrictions\n"
+    "7. **BOARD APPROVAL PROCESSES** - Application and approval details\n\n"
+    "Extract ALL available details: percentages (70%, 75%, 50%, 25%), timeframes (90 days), "
+    "age limits (65+), member limits, waiting lists, and eligibility criteria. "
+    "Format for easy scanning with clear headers, proper spacing, and organized bullet points. "
+    "Include inline citations for all specific claims."
 )
 
 enc = tiktoken.get_encoding("cl100k_base")
@@ -375,9 +384,9 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
-    # For comprehensive fee structure questions, provide detailed synthesis instructions
+    # For comprehensive fee structure questions, provide detailed formatting and synthesis instructions
     if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
-        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Create a comprehensive membership fee structure guide covering ALL categories mentioned in the source notes. For each membership category (Foundation, Social, Intermediate, Legacy, Corporate, Golfing Senior, etc.), include initiation fees, transfer fees, dues, age requirements, member limits, waiting lists, and eligibility criteria. Extract ALL percentages, timeframes, dollar amounts, and specific requirements. Organize with clear section headers and bullet points. Include complete details about board approval processes, payment deadlines, and special provisions.\n\nSOURCE NOTES (each ends with its citation):\n"
+        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Create a well-formatted, comprehensive membership fee structure guide that is easy to read and scan. Follow this structure:\n\n1. Start with a brief overview paragraph explaining the club's membership structure\n\n2. **MEMBERSHIP CATEGORIES**\n   - List all membership types with clear descriptions\n   - Use proper spacing between categories\n\n3. **INITIATION FEES**\n   - Organize by membership type\n   - Include specific percentages and amounts\n   - Format clearly (e.g., '70% of current initiation fee')\n\n4. **TRANSFER FEES**\n   - Detail transfer requirements\n   - Include all percentage calculations\n\n5. **PAYMENT & TIMING REQUIREMENTS**\n   - Payment deadlines and schedules\n   - Billing procedures\n\n6. **AGE-BASED PROVISIONS & SPECIAL RULES**\n   - Age requirements and restrictions\n   - Waiting lists and member limits\n\n7. **BOARD APPROVAL PROCESSES**\n   - Application procedures\n   - Approval requirements\n\nUse double line breaks between sections, clear bullet points, and proper indentation. Extract ALL specific details from the source notes and format for maximum readability.\n\nSOURCE NOTES (each ends with its citation):\n"
     else:
         preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
     body = "\n".join(notes)
