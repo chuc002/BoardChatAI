@@ -455,6 +455,187 @@
             font-size: 0.8rem;
             backdrop-filter: blur(10px);
         }
+
+        /* NotebookLM-style Chat Interface */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .ai-message .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .user-message .message-avatar {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .message-content {
+            flex: 1;
+            max-width: calc(100% - 56px);
+        }
+
+        .message-text {
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .user-message .message-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .chat-features {
+            list-style: none;
+            padding: 0;
+        }
+
+        .chat-features li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-features i {
+            margin-right: 12px;
+            color: #667eea;
+            width: 20px;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            background: white;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            background: #f8f9fa;
+            border-radius: 24px;
+            padding: 4px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input-wrapper:focus-within {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .chat-input-wrapper textarea {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 16px;
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+            font-family: inherit;
+        }
+
+        .send-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 2px;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .chat-suggestions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .suggestion-chip {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #495057;
+        }
+
+        .suggestion-chip:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .citations-list {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .citation-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .citation-item i {
+            margin-right: 8px;
+            color: #667eea;
+        }
+
+        .confidence-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -473,14 +654,14 @@
                 <!-- Sidebar Navigation -->
                 <div class="col-md-3 sidebar">
                     <div class="p-3">
-                        <button class="nav-item active" onclick="showSection('upload')">
-                            <i class="fas fa-cloud-upload-alt"></i> Document Upload
+                        <button class="nav-item active" onclick="showSection('chat')">
+                            <i class="fas fa-brain"></i> AI Assistant
                         </button>
                         <button class="nav-item" onclick="showSection('documents')">
-                            <i class="fas fa-folder-open"></i> Document Library
+                            <i class="fas fa-folder-open"></i> Sources
                         </button>
-                        <button class="nav-item" onclick="showSection('chat')">
-                            <i class="fas fa-comments"></i> AI Assistant
+                        <button class="nav-item" onclick="showSection('upload')">
+                            <i class="fas fa-cloud-upload-alt"></i> Add Documents
                         </button>
                         <button class="nav-item" onclick="showSection('history')">
                             <i class="fas fa-history"></i> Query History
@@ -496,8 +677,76 @@
 
                 <!-- Main Content -->
                 <div class="col-md-9">
+                    <!-- Chat Section (Now Primary) -->
+                    <div id="chat-section" class="content-section active">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4><i class="fas fa-brain"></i> Board Document Intelligence</h4>
+                                        <small class="text-muted">Your AI-powered source of truth for all board documents and governance</small>
+                                    </div>
+                                    <div class="confidence-indicator">
+                                        <span class="badge bg-success"><i class="fas fa-shield-check"></i> Verified Sources</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <!-- Chat Interface with NotebookLM styling -->
+                                <div class="chat-container" style="height: 65vh;">
+                                    <div id="chat-messages" class="chat-messages">
+                                        <!-- Welcome message -->
+                                        <div class="message ai-message">
+                                            <div class="message-avatar">
+                                                <i class="fas fa-brain"></i>
+                                            </div>
+                                            <div class="message-content">
+                                                <div class="message-text">
+                                                    <h5>Welcome to Board Continuity</h5>
+                                                    <p>I'm your AI assistant with access to all board documents, policies, and governance materials. I can help you:</p>
+                                                    <ul class="chat-features">
+                                                        <li><i class="fas fa-search"></i> Find specific information across all documents</li>
+                                                        <li><i class="fas fa-gavel"></i> Interpret policies and bylaws</li>
+                                                        <li><i class="fas fa-calculator"></i> Calculate fees and financial obligations</li>
+                                                        <li><i class="fas fa-calendar"></i> Review meeting minutes and decisions</li>
+                                                        <li><i class="fas fa-users"></i> Understand membership structures</li>
+                                                    </ul>
+                                                    <p class="text-muted mt-3">Ask me anything about your board documents. I'll provide detailed answers with specific citations.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Chat Input -->
+                                    <div class="chat-input-container">
+                                        <div class="chat-input-wrapper">
+                                            <textarea id="chat-input" placeholder="Ask about membership rules, fees, policies, or any board document..." rows="1"></textarea>
+                                            <button id="send-button" class="send-button" onclick="sendMessage()">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                        <div class="chat-suggestions">
+                                            <button class="suggestion-chip" onclick="askSuggestion('What are the membership fee structures and payment requirements?')">
+                                                Membership Fees
+                                            </button>
+                                            <button class="suggestion-chip" onclick="askSuggestion('How do I transfer membership to a family member?')">
+                                                Membership Transfer
+                                            </button>
+                                            <button class="suggestion-chip" onclick="askSuggestion('What are the guest policies and restrictions?')">
+                                                Guest Policies
+                                            </button>
+                                            <button class="suggestion-chip" onclick="askSuggestion('When was the latest board meeting and what was discussed?')">
+                                                Recent Meetings
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Upload Section -->
-                    <div id="upload-section" class="content-section active">
+                    <div id="upload-section" class="content-section">
                         <div class="card">
                             <div class="card-header">
                                 <h4><i class="fas fa-upload"></i> Document Upload Center</h4>

@@ -13,12 +13,13 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework**: Professional board-focused UI with Bootstrap 5 and custom design system
-- **Design Philosophy**: Country club board governance interface prioritizing efficiency, security, and clarity
-- **JavaScript Enhancement**: HTMX for dynamic interactions, enhanced drag-and-drop with visual feedback
-- **UI Components**: Multi-section dashboard with sidebar navigation, enhanced document library, professional chat interface, analytics dashboard, and settings panel
-- **Styling**: Executive-grade design with gradient themes, professional color palette, responsive layout, and accessibility features
-- **User Experience**: Layered information display, confidence indicators, source verification, and customizable AI preferences
+- **Framework**: NotebookLM-inspired interface with Bootstrap 5 and custom design system
+- **Design Philosophy**: AI-first conversational interface putting document intelligence at the forefront
+- **Primary Interface**: Chat-driven document intelligence with AI assistant as the main landing page
+- **JavaScript Enhancement**: HTMX for dynamic interactions, enhanced auto-resizing textarea, real-time message rendering
+- **UI Components**: Chat-first layout with AI conversation as primary interface, sidebar for sources/upload, NotebookLM-style messaging
+- **Styling**: Modern gradient themes, professional color palette with purple-blue AI branding, smooth animations, conversation-focused design
+- **User Experience**: Conversational document exploration, intelligent suggestions, confidence indicators, seamless source citations, auto-focus chat input
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
