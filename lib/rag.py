@@ -21,9 +21,11 @@ TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 SYSTEM_PROMPT = (
     "You are Forever Board Member, an AI assistant specializing in board governance and club documents. "
     "Provide comprehensive, detailed answers using ONLY the exact information from the source notes provided. "
-    "Extract and include specific numerical details: dollar amounts, percentages, timeframes, age limits, member counts, and precise requirements. "
-    "Quote exact fee structures, payment schedules, and membership categories mentioned in the sources. "
-    "When the source notes contain detailed information, provide thorough breakdowns with specific numbers and procedures. "
+    "For membership and fee questions, extract ALL available details: specific dollar amounts, percentages, payment schedules, membership categories, age requirements, transfer rules, and eligibility criteria. "
+    "When discussing fee structures, include: initiation fees, transfer fees, capital dues, monthly dues, guest fees, and any other charges mentioned. "
+    "For each membership category (Foundation, Social, Intermediate, etc.), provide complete details about requirements, restrictions, and costs. "
+    "Quote exact percentages, timeframes, and conditions. Include specific age limits, waiting periods, and approval processes. "
+    "Organize complex information into clear categories and bullet points for comprehensive understanding. "
     "Include inline citations like [Doc:{document_id}#Chunk:{chunk_index}] for all specific claims. "
     "Synthesize information across multiple sections to give complete answers with all available details. "
     "Only state that notes are insufficient if the specific question truly cannot be answered from the provided sources."
@@ -40,7 +42,8 @@ def _retry(fn, tries=4, base=0.6):
         try: return fn()
         except Exception as e:
             last=e; time.sleep(base*(2**i))
-    raise last
+    if last:
+        raise last
 
 def _fit_to_tokens(text: str, max_tokens: int) -> str:
     if max_tokens <= 0:
@@ -83,7 +86,7 @@ def _keyword(org_id: str, q: str, k: int):
     t0=time.time()
     
     # High-priority terms that likely contain the answer
-    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee", "Foundation membership", "following percentages"]
+    priority_terms = ["reinstatement", "75%", "50%", "25%", "first year", "second year", "third year", "transfer fee", "initiation fee", "Foundation membership", "following percentages", "membership fee", "dues", "payment", "70%", "seventy percent", "capital dues"]
     
     # Membership-specific terms
     membership_terms = ["Foundation", "Social", "Intermediate", "Legacy", "Corporate", "Nonresident", "Golfing Senior"]
@@ -91,6 +94,12 @@ def _keyword(org_id: str, q: str, k: int):
     
     # Search with priority order
     seen, out = set(), []
+    
+    # For comprehensive fee structure questions, cast a wider net
+    if any(comprehensive_term in q.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement']):
+        # Get more chunks for comprehensive coverage
+        comprehensive_terms = priority_terms + ["membership category", "Board consideration", "waiting list", "age", "Social Former Foundation", "Golfing Senior", "monthly dues", "guest fee", "capital assessment"]
+        k = min(k * 2, 40)  # Increase search scope for comprehensive questions
     
     # First, search for high-priority terms that likely contain specific answers
     for term in priority_terms:
@@ -235,9 +244,48 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         s = r.get("summary")
         
         # For detailed questions, use more complete content and prioritize actual content over summaries
-        if any(term in question.lower() for term in ['specific', 'exact', 'how much', 'percentage', 'fee', 'cost', 'amount', 'reinstatement']):
-            # For reinstatement questions, ensure we get the complete percentage information
-            if 'reinstatement' in question.lower() and content:
+        if any(term in question.lower() for term in ['specific', 'exact', 'how much', 'percentage', 'fee', 'cost', 'amount', 'reinstatement', 'structure', 'payment', 'requirement']):
+            
+            # For comprehensive fee structure questions, use ALL available content
+            if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
+                # Use maximum content possible for comprehensive questions
+                source_text = content[:8000] if content else s  # Maximum detail
+                
+                # Also gather related chunks for complete context
+                try:
+                    related_chunks = supa.table("doc_chunks").select("content").eq("org_id", org_id).ilike("content", "%fee%").limit(5).execute()
+                    if related_chunks.data:
+                        additional_content = ""
+                        for related in related_chunks.data[:3]:
+                            additional_content += " " + (related.get("content", "")[:1500])
+                        source_text = (content + additional_content)[:10000]  # Extended comprehensive content
+                except:
+                    source_text = content[:6000] if content else s
+            # For membership fee questions, gather comprehensive content
+            if any(fee_term in question.lower() for fee_term in ['fee', 'cost', 'payment', 'dues', 'structure']):
+                # Use much more content to capture complete fee structures
+                source_text = content[:5000] if content else s
+                
+                # For fee structure questions, try to combine with adjacent chunks for complete context
+                if 'structure' in question.lower() or 'requirement' in question.lower():
+                    try:
+                        # Get previous and next chunks to build complete context
+                        prev_chunk = supa.table("doc_chunks").select("content").eq("document_id", doc_id).eq("chunk_index", ci - 1).limit(1).execute()
+                        next_chunk = supa.table("doc_chunks").select("content").eq("document_id", doc_id).eq("chunk_index", ci + 1).limit(1).execute()
+                        
+                        combined_content = ""
+                        if prev_chunk.data:
+                            combined_content += prev_chunk.data[0].get("content", "")[-1000:] + " "
+                        combined_content += content
+                        if next_chunk.data:
+                            combined_content += " " + next_chunk.data[0].get("content", "")[:1000]
+                        
+                        source_text = combined_content[:6000]  # Extended content for comprehensive answers
+                    except:
+                        source_text = content[:4000] if content else s
+            
+            # For reinstatement questions, ensure we get the complete percentage information  
+            elif 'reinstatement' in question.lower() and content:
                 # Look for the reinstatement section in the content
                 reinstatement_start = content.find('(h) Reinstatement')
                 if reinstatement_start >= 0:
@@ -291,7 +339,11 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         return ("No usable source notes yet. Try again in a moment after processing finishes.", meta)
 
     # 4) Final answer under strict budget
-    preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
+    # For comprehensive questions, add instruction to synthesize across all sources
+    if any(comprehensive_term in question.lower() for comprehensive_term in ['fee structure', 'membership fee', 'payment requirement', 'fee structures']):
+        preamble = f"QUESTION: {question}\n\nINSTRUCTION: Provide a comprehensive answer covering ALL fee types, membership categories, payment requirements, age restrictions, waiting lists, and approval processes mentioned across ALL source notes. Organize information by category and include specific percentages, timeframes, and requirements.\n\nSOURCE NOTES (each ends with its citation):\n"
+    else:
+        preamble = f"QUESTION: {question}\n\nSOURCE NOTES (each ends with its citation):\n"
     body = "\n".join(notes)
     prompt = preamble + body
     while _toks(prompt) > MAX_FINAL_TOKENS and len(notes) > 4:

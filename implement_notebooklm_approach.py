@@ -1,115 +1,172 @@
 #!/usr/bin/env python3
 """
-Implement NotebookLM's approach to source grounding and content extraction
+Implement NotebookLM approach - comprehensive multi-chunk synthesis for fee structure questions
 """
 
 import os
 from lib.supa import supa
-from pypdf import PdfReader
+from lib.rag import answer_question_md
 
 os.environ['DEV_ORG_ID'] = '63602dc6-defe-4355-b66c-aa6b3b1273e3'
 
-def extract_complete_pdf_content():
-    """
-    Extract complete, properly structured content like NotebookLM does
-    """
-    print("=== IMPLEMENTING NOTEBOOKLM APPROACH ===")
+def test_comprehensive_implementation():
+    """Test the current comprehensive implementation"""
     
-    # Find PDF files
-    pdf_files = []
-    for root, dirs, files in os.walk('uploads'):
-        for file in files:
-            if file.endswith('.pdf'):
-                pdf_files.append(os.path.join(root, file))
+    question = "What are the membership fee structures and payment requirements?"
     
-    if not pdf_files:
-        print("No PDF files found")
-        return
-        
-    pdf_file = pdf_files[0]
-    print(f"Processing: {pdf_file}")
+    print("=== TESTING COMPREHENSIVE MEMBERSHIP FEE RESPONSE ===")
     
-    # Extract complete structured content
-    reader = PdfReader(pdf_file)
-    complete_sections = {}
+    # Get response from current system
+    answer, citations = answer_question_md(os.environ['DEV_ORG_ID'], question)
     
-    for page_num, page in enumerate(reader.pages):
-        page_text = page.extract_text()
-        
-        # Look for structured sections like NotebookLM does
-        lines = page_text.split('\n')
-        current_section = None
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Identify section headers (like "(h) Reinstatement")
-            if line.startswith('(') and ')' in line and len(line) < 100:
-                current_section = line
-                complete_sections[current_section] = ""
-            elif current_section and line:
-                complete_sections[current_section] += line + " "
+    print(f"Generated Answer:")
+    print("="*80)
+    print(answer)
+    print("="*80)
     
-    # Find and reconstruct the reinstatement section
-    reinstatement_sections = {}
-    for section_header, content in complete_sections.items():
-        if 'reinstatement' in section_header.lower() or 'reinstatement' in content.lower():
-            reinstatement_sections[section_header] = content
-            print(f"\nFound section: {section_header}")
-            print(f"Content: {content[:500]}...")
+    # Analyze comprehensiveness
+    notebooklm_standards = {
+        'Multiple membership categories (4+)': len([cat for cat in ['foundation', 'social', 'intermediate', 'legacy', 'corporate', 'golfing senior', 'former foundation', 'nonresident'] if cat in answer.lower()]) >= 4,
+        'Multiple fee percentages (3+)': len([pct for pct in ['70%', '50%', '25%', '75%'] if pct in answer]) >= 3,
+        'Detailed initiation structures': 'initiation fee' in answer.lower() and len([cat for cat in ['foundation', 'social', 'corporate'] if cat in answer.lower()]) >= 3,
+        'Transfer fee mechanisms': 'transfer fee' in answer.lower() and '70%' in answer,
+        'Capital/membership dues': any(term in answer.lower() for term in ['capital dues', 'monthly dues', 'dues', 'assessment']),
+        'Payment timeframes specified': any(time in answer.lower() for time in ['90 days', 'ninety days', '30 days', 'within']),
+        'Age-based requirements': any(age in answer.lower() for age in ['age', '65', 'sixty-five', 'under 24', 'over']),
+        'Board approval processes': 'board' in answer.lower() and ('approval' in answer.lower() or 'consideration' in answer.lower()),
+        'Waiting list systems': ('waiting' in answer.lower() and 'list' in answer.lower()) or 'priority' in answer.lower(),
+        'Member count limitations': any(limit in answer.lower() for limit in ['limited to', 'maximum of', '50 members', '20 members', 'minimum']),
+        'Reinstatement provisions': 'reinstatement' in answer.lower() and any(pct in answer for pct in ['75%', '50%', '25%']),
+        'Multiple fee types (5+)': sum(1 for fee_type in ['initiation', 'transfer', 'capital', 'monthly', 'guest', 'assessment', 'processing', 'annual'] if fee_type in answer.lower()) >= 5,
+        'Professional organization': any(marker in answer for marker in ['**', '##', '•', '1.', '2.', 'CATEGORIES', 'REQUIREMENTS']),
+        'Comprehensive length (>2200 chars)': len(answer) > 2200,
+        'Cross-category synthesis': answer.lower().count('membership') >= 6 and answer.lower().count('fee') >= 8,
+        'Specific rule citations': len(citations) > 0
+    }
     
-    # Create the complete, properly formatted reinstatement content
-    if reinstatement_sections:
-        # Manually construct the complete reinstatement information based on IHCC rules structure
-        complete_reinstatement_content = """
-(h) Reinstatement—Any Application of a resigned Member to rejoin the Club must be made on the usual form and proceed under the Club's ordinary application process for membership as established in these Rules. If such Application is approved by the Board, the initiation fee owed for Foundation membership is equal to the Foundation initiation then in effect but reduced by the following percentages:
+    passed = sum(notebooklm_standards.values())
+    total = len(notebooklm_standards)
+    score = (passed / total) * 100
+    
+    print(f"\n=== NOTEBOOKLM COMPREHENSIVENESS ANALYSIS ===")
+    for criterion, result in notebooklm_standards.items():
+        icon = '✅' if result else '❌'
+        print(f"  {icon} {criterion}")
+    
+    print(f"\nCOMPREHENSIVE QUALITY SCORE: {passed}/{total} ({score:.0f}%)")
+    print(f"Answer Length: {len(answer)} characters")
+    print(f"Citations: {len(citations)}")
+    print(f"Fee mentions: {answer.lower().count('fee')}")
+    print(f"Membership mentions: {answer.lower().count('membership')}")
+    
+    if score >= 90:
+        print("\n🏆 OUTSTANDING: Full NotebookLM comprehensiveness achieved!")
+    elif score >= 85:
+        print("\n🥇 EXCELLENT: Very close to NotebookLM standard")
+    elif score >= 75:
+        print("\n🥈 VERY GOOD: Substantial progress toward NotebookLM quality")
+    elif score >= 65:
+        print("\n🥉 GOOD: Significant improvement")
+    else:
+        print("\n🔴 NEEDS ENHANCEMENT: More work required for NotebookLM standards")
+    
+    return score, answer
 
-(a) seventy-five percent (75%) if the application is made within the first year following resignation;
-(b) fifty percent (50%) if the application is made within the second year following resignation; 
-(c) twenty-five percent (25%) if the application is made within the third year following resignation; and
-(d) no reduction if the application is made after the expiration of three years following resignation.
-
-If such Application is approved by the Board for Social membership, the initiation fee is equal to the Social initiation fee then in effect but reduced by the same percentages and timeframes as set forth above. The Member must also pay all accrued capital dues for the applicable membership category from the date of resignation to the date of reinstatement and any other fees, charges or assessments which may be owed to the Club.
-        """.strip()
-        
-        # Update the database with this structured content
-        try:
-            # Get document ID
-            doc_result = supa.table('documents').select('document_id').limit(1).execute()
-            if doc_result.data:
-                doc_id = doc_result.data[0]['document_id']
-                
-                # Create a new chunk specifically for reinstatement content
-                chunk_data = {
-                    'document_id': doc_id,
-                    'chunk_index': 50,  # Use a high number to avoid conflicts
-                    'content': complete_reinstatement_content,
-                    'summary': 'Foundation and Social membership reinstatement fees: 75% discount within 1st year, 50% within 2nd year, 25% within 3rd year after resignation. No discount after 3 years. [Doc:' + doc_id + '#Chunk:50]',
-                    'org_id': os.environ['DEV_ORG_ID'],
-                    'page_index': 7  # Page where this content appears
-                }
-                
-                # Insert the new chunk
-                supa.table('doc_chunks').upsert(chunk_data).execute()
-                print(f"✓ Created dedicated reinstatement chunk with complete percentage details")
-                
-                # Also update an existing chunk that contains partial reinstatement content
-                supa.table('doc_chunks').update({
-                    'content': complete_reinstatement_content,
-                    'summary': chunk_data['summary']
-                }).eq('document_id', doc_id).eq('chunk_index', 3).execute()
-                print(f"✓ Updated existing chunk 3 with complete reinstatement content")
-                
-        except Exception as e:
-            print(f"Database update error: {e}")
+def analyze_database_content():
+    """Analyze what comprehensive information is available in the database"""
     
-    print("\n=== NOTEBOOKLM APPROACH IMPLEMENTED ===")
-    print("✓ Source grounding: Content extracted directly from PDF structure")
-    print("✓ Context-aware: Complete reinstatement section with all percentages")
-    print("✓ Proper citations: Chunks linked to specific document and page")
-    print("✓ Accurate answers: All percentage details (75%, 50%, 25%) now available")
+    print("\n=== DATABASE CONTENT ANALYSIS ===")
+    
+    # Get all chunks
+    all_chunks = supa.table('doc_chunks').select('chunk_index,content,summary').execute()
+    
+    comprehensive_categories = {
+        'Foundation membership': 0,
+        'Social membership': 0,
+        'Intermediate membership': 0,
+        'Legacy membership': 0,
+        'Corporate membership': 0,
+        'Golfing Senior membership': 0,
+        'Initiation fees': 0,
+        'Transfer fees': 0,
+        'Capital dues': 0,
+        'Monthly dues': 0,
+        'Payment requirements': 0,
+        'Age requirements': 0,
+        'Waiting lists': 0,
+        'Board approval': 0,
+        'Reinstatement': 0,
+        '70% fee percentage': 0,
+        '75% fee percentage': 0,
+        '50% fee percentage': 0,
+        '25% fee percentage': 0
+    }
+    
+    for chunk in all_chunks.data:
+        content = chunk.get('content', '') or ''
+        
+        if 'foundation' in content.lower() and 'membership' in content.lower():
+            comprehensive_categories['Foundation membership'] += 1
+        if 'social' in content.lower() and 'membership' in content.lower():
+            comprehensive_categories['Social membership'] += 1
+        if 'intermediate' in content.lower():
+            comprehensive_categories['Intermediate membership'] += 1
+        if 'legacy' in content.lower():
+            comprehensive_categories['Legacy membership'] += 1
+        if 'corporate' in content.lower():
+            comprehensive_categories['Corporate membership'] += 1
+        if 'golfing senior' in content.lower():
+            comprehensive_categories['Golfing Senior membership'] += 1
+        if 'initiation fee' in content.lower():
+            comprehensive_categories['Initiation fees'] += 1
+        if 'transfer fee' in content.lower():
+            comprehensive_categories['Transfer fees'] += 1
+        if 'capital dues' in content.lower():
+            comprehensive_categories['Capital dues'] += 1
+        if 'monthly dues' in content.lower():
+            comprehensive_categories['Monthly dues'] += 1
+        if any(term in content.lower() for term in ['payment', 'paid', '90 days']):
+            comprehensive_categories['Payment requirements'] += 1
+        if any(term in content.lower() for term in ['age', '65', 'years old']):
+            comprehensive_categories['Age requirements'] += 1
+        if 'waiting' in content.lower() and 'list' in content.lower():
+            comprehensive_categories['Waiting lists'] += 1
+        if 'board' in content.lower() and 'approval' in content.lower():
+            comprehensive_categories['Board approval'] += 1
+        if 'reinstatement' in content.lower():
+            comprehensive_categories['Reinstatement'] += 1
+        if '70%' in content:
+            comprehensive_categories['70% fee percentage'] += 1
+        if '75%' in content:
+            comprehensive_categories['75% fee percentage'] += 1
+        if '50%' in content:
+            comprehensive_categories['50% fee percentage'] += 1
+        if '25%' in content:
+            comprehensive_categories['25% fee percentage'] += 1
+    
+    print("Information availability in database:")
+    for category, count in comprehensive_categories.items():
+        if count > 0:
+            print(f"  ✅ {category}: {count} chunks")
+        else:
+            print(f"  ❌ {category}: 0 chunks")
+    
+    # Show chunks with the most comprehensive information
+    print(f"\nTotal chunks analyzed: {len(all_chunks.data)}")
+    
+    return comprehensive_categories
 
 if __name__ == "__main__":
-    extract_complete_pdf_content()
+    # Analyze what's available in the database
+    db_analysis = analyze_database_content()
+    
+    # Test current implementation
+    score, answer = test_comprehensive_implementation()
+    
+    print(f"\n=== FINAL ASSESSMENT ===")
+    print(f"Current system achieves {score:.0f}% of NotebookLM comprehensiveness standards")
+    
+    if score < 85:
+        print("Recommendation: Enhance RAG retrieval to gather more diverse membership category information")
+    else:
+        print("System meets high comprehensiveness standards!")
