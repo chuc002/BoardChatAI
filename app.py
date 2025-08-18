@@ -98,16 +98,63 @@ def chat():
         return jsonify({"ok": False, "error": "missing q"}), 400
     
     try:
-        md, citations = answer_question_md(ORG_ID, q)
-        # persist history
+        md, meta = answer_question_md(ORG_ID, q)
+        
+        # Enhance citations with content for clickable references
+        enhanced_citations = []
+        for item in meta:
+            # Handle different meta formats
+            if isinstance(item, (list, tuple)) and len(item) >= 3:
+                doc_id, chunk_index, page_idx = item[:3]
+            elif isinstance(item, dict):
+                doc_id = item.get('document_id')
+                chunk_index = item.get('chunk_index', 0)
+                page_idx = item.get('page_index')
+            else:
+                print(f"[CHAT] Unexpected meta format: {item}")
+                continue
+            try:
+                # Get the chunk content
+                chunk_data = supa.table("doc_chunks").select("content, summary").eq("document_id", doc_id).eq("chunk_index", chunk_index).limit(1).execute()
+                chunk_content = ""
+                if chunk_data.data:
+                    chunk_content = chunk_data.data[0].get("content", "") or chunk_data.data[0].get("summary", "")
+                
+                # Get document title  
+                doc_data = supa.table("documents").select("title, filename").eq("id", doc_id).limit(1).execute()
+                doc_title = ""
+                if doc_data.data:
+                    doc_title = doc_data.data[0].get("title") or doc_data.data[0].get("filename", f"Document {doc_id}")
+                
+                enhanced_citations.append({
+                    "document_id": doc_id,
+                    "chunk_index": chunk_index,
+                    "page_index": page_idx,
+                    "title": doc_title,
+                    "content": chunk_content[:800] + "..." if len(chunk_content) > 800 else chunk_content,
+                    "url": signed_url_for(doc_id) if doc_id else None
+                })
+            except Exception as e:
+                print(f"[CHAT] Error enhancing citation {doc_id}#{chunk_index}: {e}")
+                # Fallback to basic citation
+                enhanced_citations.append({
+                    "document_id": doc_id,
+                    "chunk_index": chunk_index,
+                    "page_index": page_idx,
+                    "title": f"Document {doc_id}",
+                    "content": "",
+                    "url": None
+                })
+        
+        # persist history  
         supa.table("qa_history").insert({
             "org_id": ORG_ID,
             "user_id": USER_ID,
             "question": q,
             "answer_md": md,
-            "citations": json.loads(json.dumps(citations))  # ensure pure json
+            "citations": json.loads(json.dumps(enhanced_citations))  # ensure pure json
         }).execute()
-        return jsonify({"ok": True, "markdown": md, "citations": citations})
+        return jsonify({"ok": True, "markdown": md, "citations": enhanced_citations})
     except Exception as e:
         error_msg = str(e)
         if "rate_limit_exceeded" in error_msg or "Request too large" in error_msg:
