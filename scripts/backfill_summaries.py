@@ -1,12 +1,14 @@
 # scripts/backfill_summaries.py
 import os
 import sys
-sys.path.append('..')
+import argparse
+# Add the parent directory to Python path to import lib modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from openai import OpenAI
 from lib.supa import supa
 
 client = OpenAI()
-CHAT_COMPRESS = os.getenv("CHAT_COMPRESS","gpt-4o-mini")
+CHAT_COMPRESS = os.getenv("CHAT_COMPRESS","gpt-3.5-turbo")
 
 def summarize(doc_id, idx, text):
     text = (text or "").strip()

@@ -53,7 +53,7 @@ def smart_chunks_by_page(pages: list[tuple[int, str]], target_tokens: int = 900,
 # --- Embeddings ---
 def embed_texts(texts: list[str]) -> list[list[float]]:
     from os import getenv
-    model = getenv("EMBED_MODEL", "text-embedding-3-small")  # 1536-dim, high quality
+    model = getenv("EMBED_MODEL", "text-embedding-ada-002")  # 1536-dim, reliable
     try:
         resp = client.embeddings.create(model=model, input=texts)
         return [d.embedding for d in resp.data]
@@ -84,7 +84,7 @@ def _summarize_chunk(text: str, doc_id: str, idx: int) -> str:
     )
     try:
         resp = client.chat.completions.create(
-            model=os.getenv("CHAT_COMPRESS","gpt-4o-mini"),
+            model=os.getenv("CHAT_COMPRESS","gpt-3.5-turbo"),
             temperature=0.0,
             messages=[{"role":"user","content":prompt}],
             max_tokens=140  # ~100 tokens output + safety

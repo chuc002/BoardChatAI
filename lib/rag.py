@@ -6,22 +6,27 @@ import tiktoken
 client = OpenAI()
 
 # ==== CONFIG ====
-CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4o")
-EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4")
+EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-ada-002")
 USE_VECTOR     = os.getenv("USE_VECTOR", "1") not in ("0","false","False","no","NO")
 
-MAX_CANDIDATES     = int(os.getenv("MAX_CANDIDATES", "16"))
-MMR_K              = int(os.getenv("MMR_K", "8"))
-MMR_LAMBDA         = float(os.getenv("MMR_LAMBDA", "0.55"))
-MAX_SUMMARY_TOKENS = int(os.getenv("MAX_SUMMARY_TOKENS", "3200"))
-MAX_FINAL_TOKENS   = int(os.getenv("MAX_FINAL_TOKENS", "5200"))
+MAX_CANDIDATES     = int(os.getenv("MAX_CANDIDATES", "24"))
+MMR_K              = int(os.getenv("MMR_K", "12"))
+MMR_LAMBDA         = float(os.getenv("MMR_LAMBDA", "0.65"))
+MAX_SUMMARY_TOKENS = int(os.getenv("MAX_SUMMARY_TOKENS", "4000"))
+MAX_FINAL_TOKENS   = int(os.getenv("MAX_FINAL_TOKENS", "6000"))
 TEMPERATURE        = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
 # =================
 
 SYSTEM_PROMPT = (
-    "You are Forever Board Member. Answer ONLY from the provided source notes. "
-    "Every claim must include an inline citation like [Doc:{document_id}#Chunk:{chunk_index}]. "
-    "If the notes are insufficient, say so and ask for the missing document."
+    "You are Forever Board Member, an AI assistant specializing in board governance and club documents. "
+    "Provide comprehensive, detailed answers using ONLY the exact information from the source notes provided. "
+    "Extract and include specific numerical details: dollar amounts, percentages, timeframes, age limits, member counts, and precise requirements. "
+    "Quote exact fee structures, payment schedules, and membership categories mentioned in the sources. "
+    "When the source notes contain detailed information, provide thorough breakdowns with specific numbers and procedures. "
+    "Include inline citations like [Doc:{document_id}#Chunk:{chunk_index}] for all specific claims. "
+    "Synthesize information across multiple sections to give complete answers with all available details. "
+    "Only state that notes are insufficient if the specific question truly cannot be answered from the provided sources."
 )
 
 enc = tiktoken.get_encoding("cl100k_base")
@@ -76,17 +81,27 @@ def _vector(org_id: str, q: str, k: int):
 
 def _keyword(org_id: str, q: str, k: int):
     t0=time.time()
-    terms=[q,"bylaws","policy","rules","minutes","assessment","dues","board","committee","vote","reserved","Open Times","Primary","Juniors","Ladies"]
-    seen,out=set(),[]
-    for t in terms:
+    # Enhanced keyword search with membership-specific terms
+    base_terms = [q]
+    membership_terms = ["membership", "fee", "dues", "initiation", "transfer", "Foundation", "Social", "Intermediate", "Nonresident", "Corporate", "Legacy", "Golfing Senior", "Surviving Spouse"]
+    financial_terms = ["payment", "billing", "charge", "cost", "minimum", "percent", "tax", "discount", "refund", "delinquent"]
+    governance_terms = ["bylaws", "policy", "rules", "board", "committee", "vote", "privileges", "obligations", "requirements"]
+    
+    # Combine all search terms
+    all_terms = base_terms + membership_terms + financial_terms + governance_terms
+    seen, out = set(), []
+    
+    for t in all_terms:
         resp = supa.table("doc_chunks").select("document_id,chunk_index,summary,content") \
-               .eq("org_id", org_id).ilike("content", f"%{t}%").limit(k).execute().data
+               .eq("org_id", org_id).ilike("content", f"%{t}%").limit(k*2).execute().data
         for r in resp or []:
-            key=(r["document_id"], r["chunk_index"])
+            key = (r["document_id"], r["chunk_index"])
             if key in seen: continue
-            seen.add(key); out.append(r)
-            if len(out)>=k: break
-        if len(out)>=k: break
+            seen.add(key)
+            out.append(r)
+            if len(out) >= k: break
+        if len(out) >= k: break
+    
     print(f"[RAG] keyword rows={len(out)} in {time.time()-t0:.3f}s")
     return out
 
@@ -225,7 +240,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         answer = _retry(run)
     except Exception as e:
         print(f"[RAG] final model error; downshifting: {e}")
-        model = "gpt-4o-mini"
+        model = "gpt-3.5-turbo"
         answer = _retry(lambda: client.chat.completions.create(
             model=model, temperature=TEMPERATURE,
             messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],
