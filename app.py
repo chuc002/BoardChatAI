@@ -48,13 +48,36 @@ def delete_doc():
     doc_id = (request.form.get("id") if request.form else None) or (request.json.get("id") if request.is_json else None)
     if not doc_id:
         return jsonify({"ok": False, "error": "missing id"}), 400
-    supa.table("doc_chunks").delete().eq("document_id", doc_id).execute()
-    doc = supa.table("documents").select("storage_path").eq("id", doc_id).limit(1).execute().data
-    if doc and doc[0].get("storage_path"):
-        try: supa.storage.from_(SUPABASE_BUCKET).remove([doc[0]["storage_path"]])
-        except Exception: pass
-    supa.table("documents").delete().eq("id", doc_id).execute()
-    return docs()
+    
+    try:
+        # First verify document belongs to this org
+        doc = supa.table("documents").select("storage_path").eq("id", doc_id).eq("org_id", ORG_ID).limit(1).execute().data
+        if not doc:
+            return jsonify({"ok": False, "error": "document not found or not accessible"}), 404
+        
+        # Delete chunks first (with org filter for safety)
+        supa.table("doc_chunks").delete().eq("document_id", doc_id).eq("org_id", ORG_ID).execute()
+        
+        # Delete from storage if exists
+        if doc[0].get("storage_path"):
+            try: 
+                supa.storage.from_(SUPABASE_BUCKET).remove([doc[0]["storage_path"]])
+            except Exception as e: 
+                print(f"Storage delete warning: {e}")
+        
+        # Delete QA history for this document
+        try:
+            supa.table("qa_history").delete().eq("org_id", ORG_ID).like("answer_md", f"%{doc_id}%").execute()
+        except Exception as e:
+            print(f"QA history cleanup warning: {e}")
+        
+        # Finally delete document record
+        result = supa.table("documents").delete().eq("id", doc_id).eq("org_id", ORG_ID).execute()
+        
+        return docs()
+    except Exception as e:
+        print(f"Delete error for doc {doc_id}: {e}")
+        return jsonify({"ok": False, "error": f"Delete failed: {str(e)}"}), 500
 
 @app.post("/docs/delete_all")
 def delete_all():
