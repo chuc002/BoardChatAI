@@ -636,6 +636,15 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        @keyframes loadingDots {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
     </style>
 </head>
 <body>
@@ -1233,10 +1242,175 @@
             }
         });
 
-        // Initialize on load
+        // NotebookLM-style Chat Functions
+        function askSuggestion(question) {
+            document.getElementById('chat-input').value = question;
+            sendMessage();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            if (!query) return;
+
+            addUserMessage(query);
+            input.value = '';
+            autoResizeTextarea();
+            showAILoading();
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({q: query})
+            })
+            .then(r => r.json())
+            .then(data => {
+                hideAILoading();
+                if (data.ok) {
+                    addAIMessage(data.markdown, data.citations || []);
+                } else {
+                    addAIMessage(`I encountered an error: ${data.error || 'Unknown error occurred'}. Please try rephrasing your question.`);
+                }
+            })
+            .catch(err => {
+                hideAILoading();
+                addAIMessage(`Connection error occurred. Please check your connection and try again.`);
+            });
+        }
+
+        function addUserMessage(text) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user-message';
+            messageDiv.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${text}</div>
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            messageDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function addAIMessage(markdown, citations = []) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai-message';
+            
+            let citationsHTML = '';
+            if (citations && citations.length > 0) {
+                citationsHTML = `
+                    <div class="citations-list">
+                        <small class="text-muted d-block mb-2"><i class="fas fa-link"></i> Sources:</small>
+                        ${citations.map(c => `
+                            <div class="citation-item">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="${c.url || '#'}" target="_blank" class="text-decoration-none">
+                                    ${c.title || 'Document'} ${c.page_index !== null ? `(Page ${c.page_index + 1})` : ''}
+                                </a>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">
+                        ${markdown}
+                        ${citationsHTML}
+                    </div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messageDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showAILoading() {
+            const messagesContainer = document.getElementById('chat-messages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message ai-message';
+            loadingDiv.id = 'ai-loading';
+            loadingDiv.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">
+                        <div style="display: inline-flex; gap: 4px; align-items: center;">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #667eea; animation: loadingDots 1.4s ease-in-out -0.32s infinite both;"></div>
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #667eea; animation: loadingDots 1.4s ease-in-out -0.16s infinite both;"></div>
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #667eea; animation: loadingDots 1.4s ease-in-out 0s infinite both;"></div>
+                        </div>
+                        <span class="text-muted ms-2">Analyzing documents...</span>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(loadingDiv);
+            loadingDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideAILoading() {
+            const loading = document.getElementById('ai-loading');
+            if (loading) loading.remove();
+        }
+
+        function autoResizeTextarea() {
+            const textarea = document.getElementById('chat-input');
+            if (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
+        }
+
+        // Override showSection for chat-first
+        function showSection(section) {
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(section + '-section').classList.add('active');
+            document.querySelector(`[onclick="showSection('${section}')"]`).classList.add('active');
+            
+            if (section === 'documents') {
+                htmx.ajax('GET', '/docs', {target: '#document-list'});
+            } else if (section === 'history') {
+                htmx.ajax('GET', '/history', {target: '#history-list'});
+            } else if (section === 'chat') {
+                setTimeout(() => {
+                    const input = document.getElementById('chat-input');
+                    if (input) input.focus();
+                }, 100);
+            } else if (section === 'analytics') {
+                loadAnalytics();
+            }
+        }
+
+        // Initialize on load - Chat First!
         document.addEventListener('DOMContentLoaded', function() {
             // Load initial data
             htmx.ajax('GET', '/docs', {target: '#document-list'});
+            
+            // Start with chat section
+            showSection('chat');
+            
+            // Setup chat input
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('input', autoResizeTextarea);
+                chatInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+                setTimeout(() => chatInput.focus(), 500);
+            }
             
             // Set default analytics values
             document.getElementById('avg-response').textContent = '< 3s';
