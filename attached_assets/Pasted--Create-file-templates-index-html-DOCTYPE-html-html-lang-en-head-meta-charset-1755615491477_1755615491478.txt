@@ -1,0 +1,328 @@
+<!-- Create file: templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoardContinuity - Institutional Memory AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1f4e79 0%, #2d5a87 50%, #1f4e79 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .typing-indicator {
+            display: none;
+        }
+        .typing-indicator.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="gradient-bg text-white py-6">
+        <div class="container mx-auto px-6">
+            <h1 class="text-3xl font-bold">BoardContinuity</h1>
+            <p class="text-blue-100 mt-2">30-Year Veteran Board Member • Perfect Institutional Memory</p>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-6 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Chat Interface -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Ask Your Institutional Memory</h2>
+                    
+                    <!-- Chat Messages -->
+                    <div id="chat-messages" class="h-96 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="text-center text-gray-500 py-8">
+                            <p class="text-lg font-medium">Welcome to BoardContinuity</p>
+                            <p>I have perfect recall of your organization's entire history.</p>
+                            <p class="mt-2 text-sm">Try asking: "What are all our membership fees and transfer rules?"</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Typing Indicator -->
+                    <div id="typing-indicator" class="typing-indicator text-gray-500 italic mb-2">
+                        BoardContinuity is thinking...
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            id="query-input" 
+                            placeholder="Ask about any governance decision, policy, or precedent..."
+                            class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onkeypress="handleKeyPress(event)"
+                        >
+                        <button 
+                            onclick="sendQuery()" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                            Ask
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <!-- Institutional Insights -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Institutional Insights</h3>
+                    <div id="insights-panel" class="space-y-3">
+                        <div class="p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                            <p class="text-sm text-blue-800">Upload documents to see governance patterns</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Document Upload -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Upload Documents</h3>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input type="file" id="file-upload" accept=".pdf" class="hidden" onchange="uploadDocument()">
+                        <button onclick="document.getElementById('file-upload').click()" class="text-blue-600 hover:text-blue-800">
+                            <div class="mb-2">📄</div>
+                            <div>Upload Board Documents</div>
+                            <div class="text-sm text-gray-500 mt-1">PDF files only</div>
+                        </button>
+                    </div>
+                    <div id="upload-status" class="mt-3 text-sm"></div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Quick Questions</h3>
+                    <div class="space-y-2">
+                        <button onclick="askPredefined('What are all our membership fees and transfer rules?')" 
+                                class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded">
+                            📋 Complete Fee Structure
+                        </button>
+                        <button onclick="askPredefined('Show me our decision patterns for budget approvals')" 
+                                class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded">
+                            📊 Budget Decision Patterns
+                        </button>
+                        <button onclick="askPredefined('What vendor relationships have we had issues with?')" 
+                                class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded">
+                            🏢 Vendor History
+                        </button>
+                        <button onclick="askPredefined('What are the unwritten rules about major decisions?')" 
+                                class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded">
+                            💡 Cultural Wisdom
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ORG_ID = 'demo-org'; // Replace with actual org ID
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendQuery();
+            }
+        }
+        
+        function askPredefined(question) {
+            document.getElementById('query-input').value = question;
+            sendQuery();
+        }
+        
+        async function sendQuery() {
+            const input = document.getElementById('query-input');
+            const query = input.value.trim();
+            
+            if (!query) return;
+            
+            // Clear input and show user message
+            input.value = '';
+            addMessage('user', query);
+            
+            // Show typing indicator
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        org_id: ORG_ID,
+                        query: query
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    addMessage('assistant', `Error: ${data.error}`);
+                } else {
+                    addMessage('assistant', data.response, data.sources);
+                    
+                    // Update performance indicator
+                    if (data.performance) {
+                        console.log(`Response time: ${data.performance.response_time_ms}ms`);
+                    }
+                }
+                
+            } catch (error) {
+                addMessage('assistant', 'Sorry, I encountered an error processing your question. Please try again.');
+                console.error('Error:', error);
+            } finally {
+                // Hide typing indicator
+                typingIndicator.classList.remove('active');
+            }
+        }
+        
+        function addMessage(sender, content, sources = null) {
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-4 ${sender === 'user' ? 'text-right' : 'text-left'}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `inline-block max-w-3xl p-4 rounded-lg ${
+                sender === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white border border-gray-200'
+            }`;
+            
+            // Format content with line breaks
+            const formattedContent = content.replace(/\n/g, '<br>');
+            bubbleDiv.innerHTML = formattedContent;
+            
+            messageDiv.appendChild(bubbleDiv);
+            
+            // Add sources if available
+            if (sources && sources.length > 0) {
+                const sourcesDiv = document.createElement('div');
+                sourcesDiv.className = 'mt-2 text-xs text-gray-500';
+                sourcesDiv.innerHTML = '<strong>Sources:</strong> ' + 
+                    sources.map(s => `${s.source} (p.${s.page})`).join(', ');
+                messageDiv.appendChild(sourcesDiv);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        async function uploadDocument() {
+            const fileInput = document.getElementById('file-upload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.innerHTML = '<div class="text-blue-600">Uploading and processing...</div>';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('org_id', ORG_ID);
+            
+            try {
+                const response = await fetch('/api/upload-document', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusDiv.innerHTML = `
+                        <div class="text-green-600">
+                            ✅ Document processed successfully<br>
+                            <span class="text-xs">
+                                ${data.chunks_created} sections • ${data.decisions_extracted} decisions • 
+                                ${data.patterns_identified} patterns identified
+                            </span>
+                        </div>
+                    `;
+                    
+                    // Refresh insights
+                    loadInstitutionalInsights();
+                } else {
+                    statusDiv.innerHTML = `<div class="text-red-600">❌ ${data.error}</div>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="text-red-600">❌ Upload failed</div>';
+                console.error('Upload error:', error);
+            }
+            
+            // Clear file input
+            fileInput.value = '';
+        }
+        
+        async function loadInstitutionalInsights() {
+            try {
+                const response = await fetch(`/api/institutional-insights/${ORG_ID}`);
+                const data = await response.json();
+                
+                const insightsPanel = document.getElementById('insights-panel');
+                
+                if (data.insights && Object.keys(data.insights).length > 0) {
+                    let insightsHTML = '';
+                    
+                    // Decision velocity
+                    if (data.insights.decision_velocity) {
+                        insightsHTML += `
+                            <div class="p-3 bg-green-50 rounded border-l-4 border-green-400">
+                                <p class="text-sm text-green-800">
+                                    <strong>Decision Velocity:</strong> ${data.insights.decision_velocity.average_days} days average
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    // Governance maturity
+                    if (data.insights.governance_maturity_score) {
+                        const score = Math.round(data.insights.governance_maturity_score * 100);
+                        insightsHTML += `
+                            <div class="p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Governance Maturity:</strong> ${score}%
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    // Risk indicators
+                    if (data.insights.risk_indicators && data.insights.risk_indicators.length > 0) {
+                        insightsHTML += `
+                            <div class="p-3 bg-yellow-50 rounded border-l-4 border-yellow-400">
+                                <p class="text-sm text-yellow-800">
+                                    <strong>Risk Alert:</strong> ${data.insights.risk_indicators[0]}
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    insightsPanel.innerHTML = insightsHTML;
+                } else {
+                    insightsPanel.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border-l-4 border-gray-400">
+                            <p class="text-sm text-gray-600">Upload documents to generate insights</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Error loading insights:', error);
+            }
+        }
+        
+        // Load insights on page load
+        document.addEventListener('DOMContentLoaded', loadInstitutionalInsights);
+    </script>
+</body>
+</html>

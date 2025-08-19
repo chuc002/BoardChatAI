@@ -17,7 +17,7 @@ from lib.institutional_memory import process_document_for_institutional_memory, 
 from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
 from lib.knowledge_graph import build_knowledge_graph, query_knowledge_graph
 from lib.governance_intelligence import analyze_decision_comprehensive, predict_decision_outcome
-from lib.memory_synthesis import recall_topic_history, answer_with_veteran_wisdom
+from lib.memory_synthesis import recall_institutional_memory, answer_with_veteran_wisdom
 from lib.perfect_rag import retrieve_perfect_context, generate_perfect_rag_response
 
 logger = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ class BoardContinuityBrain:
             analysis['perfect_recall'] = asdict(recall_response)
             
             # 2. Historical timeline
-            historical_timeline = recall_topic_history(self.org_id, topic)
+            historical_timeline = recall_institutional_memory(self.org_id, topic)
             analysis['historical_timeline'] = historical_timeline
             
             # 3. Pattern analysis
@@ -457,7 +457,7 @@ class BoardContinuityBrain:
     def _build_historical_context(self, query: str) -> Dict[str, Any]:
         """Build historical context for the query."""
         try:
-            return recall_topic_history(self.org_id, query)
+            return recall_institutional_memory(self.org_id, query)
         except Exception as e:
             logger.warning(f"Historical context building failed: {e}")
             return {'error': str(e)}

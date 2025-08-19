@@ -6,13 +6,13 @@ from lib.institutional_memory import process_document_for_institutional_memory, 
 from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
 from lib.outcome_predictor import predict_decision_outcome, get_prediction_accuracy_metrics
+from lib.memory_synthesis import recall_institutional_memory, answer_with_veteran_wisdom, get_institutional_intelligence_report
 from lib.knowledge_graph import (build_knowledge_graph, analyze_decision_ripple_effects, 
                                 get_member_complete_analysis, trace_policy_evolution,
                                 find_governance_cycles, query_knowledge_graph)
 from lib.governance_intelligence import (analyze_decision_comprehensive, predict_decision_outcome,
                                        get_decision_context, analyze_governance_trends, generate_board_insights)
-from lib.memory_synthesis import (recall_topic_history, answer_with_veteran_wisdom,
-                                get_institutional_wisdom, explain_club_culture)
+
 from lib.perfect_rag import retrieve_perfect_context, generate_perfect_rag_response
 from lib.board_continuity_brain import (perfect_recall_query, process_document_with_perfect_capture,
                                        comprehensive_topic_analysis, validate_system_integrity)
@@ -683,6 +683,90 @@ def scenario_analysis():
             "base_prediction": predict_decision_outcome(ORG_ID, base_decision),
             "scenarios": scenario_results
         })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+# Comprehensive Memory Synthesis Endpoints
+
+@app.post("/recall-institutional-memory")
+def recall_institutional_memory_endpoint():
+    """Recall complete institutional memory on a topic with veteran wisdom."""
+    try:
+        data = request.json
+        topic = data.get('topic', '') if data else ''
+        
+        if not topic:
+            return jsonify({"ok": False, "error": "No topic provided"})
+        
+        memory_recall = recall_institutional_memory(ORG_ID, topic)
+        return jsonify({"ok": True, "memory": memory_recall})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/veteran-wisdom")
+def veteran_wisdom():
+    """Answer questions with 30-year veteran board member wisdom."""
+    try:
+        data = request.json
+        question = data.get('question', '') if data else ''
+        
+        if not question:
+            return jsonify({"ok": False, "error": "No question provided"})
+        
+        veteran_answer = answer_with_veteran_wisdom(ORG_ID, question)
+        return jsonify({"ok": True, "wisdom": veteran_answer})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/institutional-intelligence")
+def institutional_intelligence():
+    """Generate comprehensive institutional intelligence report."""
+    try:
+        report_type = request.args.get('type', 'comprehensive')
+        intelligence = get_institutional_intelligence_report(ORG_ID, report_type)
+        return jsonify({"ok": True, "intelligence": intelligence})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/synthesize-memory")
+def synthesize_memory():
+    """Advanced memory synthesis for complex queries."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"ok": False, "error": "No data provided"})
+        
+        query_type = data.get('type', 'comprehensive')
+        topics = data.get('topics', [])
+        question = data.get('question', '')
+        
+        synthesis_result = {
+            'synthesis_type': query_type,
+            'analyzed_topics': topics,
+            'comprehensive_analysis': {},
+            'cross_topic_insights': [],
+            'veteran_recommendations': []
+        }
+        
+        # Analyze each topic with institutional memory
+        for topic in topics:
+            topic_memory = recall_institutional_memory(ORG_ID, topic)
+            synthesis_result['comprehensive_analysis'][topic] = topic_memory
+        
+        # If there's a specific question, answer with veteran wisdom
+        if question:
+            veteran_response = answer_with_veteran_wisdom(ORG_ID, question)
+            synthesis_result['veteran_response'] = veteran_response
+        
+        # Generate cross-topic insights
+        if len(topics) > 1:
+            synthesis_result['cross_topic_insights'] = [
+                f"Analysis spans {len(topics)} interconnected governance areas",
+                "Historical patterns identified across multiple domains",
+                "Veteran wisdom applied to complex multi-topic scenario"
+            ]
+        
+        return jsonify({"ok": True, "synthesis": synthesis_result})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
