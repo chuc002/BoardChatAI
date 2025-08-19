@@ -6,7 +6,7 @@ import tiktoken
 client = OpenAI()
 
 # ==== CONFIG ====
-CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4")
+CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4o-mini")
 EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 USE_VECTOR     = os.getenv("USE_VECTOR", "1") not in ("0","false","False","no","NO")
 
@@ -476,7 +476,7 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
         answer = _retry(run)
     except Exception as e:
         print(f"[RAG] final model error; downshifting: {e}")
-        model = "gpt-3.5-turbo"
+        model = "gpt-4o-mini"
         print(f"[RAG] Downgrading to {model} due to primary model failure")
         answer = _retry(lambda: client.chat.completions.create(
             model=model, temperature=TEMPERATURE,
