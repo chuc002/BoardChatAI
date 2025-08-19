@@ -328,6 +328,49 @@
             border-radius: 0 8px 8px 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        
+        /* Interactive highlight effects */
+        .financial-highlight, .metric-highlight, .year-highlight {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .financial-highlight:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .metric-highlight:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .year-highlight:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+        }
+        
+        /* Tooltip styling */
+        .copy-tooltip {
+            position: absolute;
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            animation: fadeInOut 1.5s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
         }
         
         .input-enhanced:focus {
@@ -639,6 +682,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadSystemMetrics();
             loadIntelligencePanel();
+            addInteractiveElements();
         });
         
         function handleKeyPress(event) {
@@ -1001,6 +1045,87 @@
                 `;
                 intelligencePanel.innerHTML = metricsHTML;
             }
+        }
+        
+        // Add interactive elements for better UX
+        function addInteractiveElements() {
+            // Add copy-to-clipboard for financial figures and data
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('financial-highlight') || 
+                    e.target.classList.contains('metric-highlight') || 
+                    e.target.classList.contains('year-highlight')) {
+                    
+                    // Extract clean text content
+                    const textToCopy = e.target.textContent.trim();
+                    
+                    // Copy to clipboard
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            showCopyTooltip(e);
+                        }).catch(() => {
+                            // Fallback for older browsers
+                            fallbackCopyTextToClipboard(textToCopy, e);
+                        });
+                    } else {
+                        // Fallback for older browsers
+                        fallbackCopyTextToClipboard(textToCopy, e);
+                    }
+                }
+            });
+            
+            // Add hover tooltips for interactive elements
+            document.addEventListener('mouseover', function(e) {
+                if (e.target.classList.contains('financial-highlight') || 
+                    e.target.classList.contains('metric-highlight') || 
+                    e.target.classList.contains('year-highlight')) {
+                    
+                    e.target.title = 'Click to copy';
+                }
+            });
+        }
+        
+        // Show copy confirmation tooltip
+        function showCopyTooltip(event) {
+            const tooltip = document.createElement('div');
+            tooltip.textContent = 'Copied!';
+            tooltip.className = 'copy-tooltip';
+            tooltip.style.left = event.pageX + 'px';
+            tooltip.style.top = (event.pageY - 40) + 'px';
+            
+            document.body.appendChild(tooltip);
+            
+            // Trigger animation
+            setTimeout(() => tooltip.style.opacity = '1', 10);
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (tooltip.parentNode) {
+                    tooltip.parentNode.removeChild(tooltip);
+                }
+            }, 1500);
+        }
+        
+        // Fallback copy function for older browsers
+        function fallbackCopyTextToClipboard(text, event) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopyTooltip(event);
+                }
+            } catch (err) {
+                console.log('Copy failed:', err);
+            }
+            
+            document.body.removeChild(textArea);
         }
         
         function showCitation(sourceData) {
