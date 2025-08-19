@@ -36,7 +36,7 @@ OVERLAP_SIZE = 300
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
-CHAT_COMPRESS = os.getenv("CHAT_COMPRESS", "gpt-4o-mini")
+CHAT_COMPRESS = os.getenv("CHAT_COMPRESS", "gpt-4")
 
 class SectionAwareChunker:
     def __init__(self):

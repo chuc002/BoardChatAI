@@ -84,7 +84,7 @@ def _summarize_chunk(text: str, doc_id: str, idx: int) -> str:
     )
     try:
         resp = client.chat.completions.create(
-            model=os.getenv("CHAT_COMPRESS","gpt-3.5-turbo"),
+            model=os.getenv("CHAT_COMPRESS","gpt-4"),
             temperature=0.0,
             messages=[{"role":"user","content":prompt}],
             max_tokens=140  # ~100 tokens output + safety

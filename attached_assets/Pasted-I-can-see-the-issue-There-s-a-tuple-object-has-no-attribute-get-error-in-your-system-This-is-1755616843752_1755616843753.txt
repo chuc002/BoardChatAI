@@ -1,0 +1,148 @@
+I can see the issue! There's a `'tuple' object has no attribute 'get'` error in your system. This is a common Python error that occurs when the code expects a dictionary but receives a tuple instead.
+
+Looking at your BoardContinuity codebase, this is likely happening in one of these areas:
+
+## 🔧 **IMMEDIATE FIX - Check These Files:**
+
+### **1. In `lib/rag.py` - Check the return format:**
+```python
+# Look for this pattern - it should return a tuple consistently
+def answer_question_md(org_id: str, question: str, chat_model: str | None = None):
+    # ... your code ...
+    # Make sure you ALWAYS return a tuple of (answer, citations)
+    return (answer_text, citations_list)  # This should be a tuple
+
+# If you have inconsistent returns like this:
+# Sometimes: return answer_text  # This returns a string
+# Sometimes: return (answer_text, citations)  # This returns a tuple
+# This will cause the error!
+```
+
+### **2. In your Flask route handler - Check how you're unpacking:**
+```python
+# In app.py or your main route handler
+@app.route('/api/query', methods=['POST'])
+def handle_query():
+    # This is probably where the error occurs
+    response_data = perfect_rag.generate_perfect_response(org_id, query)
+    
+    # If generate_perfect_response returns a tuple when you expect a dict:
+    if isinstance(response_data, tuple):
+        response_text, metadata = response_data
+        response_data = {
+            'response': response_text,
+            'metadata': metadata
+        }
+    
+    return jsonify(response_data)
+```
+
+### **3. Most Likely Location - Check `lib/perfect_rag.py`:**
+```python
+# In your generate_perfect_response method
+def generate_perfect_response(self, org_id: str, query: str) -> Dict[str, Any]:
+    # Check if you're calling a function that returns a tuple
+    # but treating it like a dictionary
+    
+    # Instead of:
+    result = some_function_that_returns_tuple()
+    text = result.get('text')  # ERROR: tuple has no 'get' method
+    
+    # Do this:
+    if isinstance(result, tuple):
+        text, metadata = result
+    else:
+        text = result.get('text')
+```
+
+## 🚨 **QUICK DEBUG STEPS:**
+
+### **Step 1: Add debugging to find exact location**
+Add this to your error handling:
+```python
+import traceback
+
+try:
+    # Your existing code
+    response_data = perfect_rag.generate_perfect_response(org_id, query)
+except Exception as e:
+    print(f"Error type: {type(e)}")
+    print(f"Error message: {str(e)}")
+    print(f"Full traceback:")
+    traceback.print_exc()
+    return jsonify({'error': f'Debug info: {str(e)}'}), 500
+```
+
+### **Step 2: Check your RAG response format**
+In your `lib/rag.py`, ensure consistent return format:
+```python
+def answer_question_md(org_id: str, question: str, chat_model: str | None = None):
+    try:
+        # Your retrieval and generation logic
+        answer = "Your generated answer"
+        citations = [{"source": "doc1", "page": 1}]
+        
+        # ALWAYS return the same format
+        return {
+            'response': answer,
+            'sources': citations,
+            'confidence': 0.95
+        }
+    except Exception as e:
+        print(f"Error in answer_question_md: {e}")
+        return {
+            'response': 'I encountered an error processing your question.',
+            'sources': [],
+            'confidence': 0.0
+        }
+```
+
+### **Step 3: Fix the generate_perfect_response method**
+```python
+def generate_perfect_response(self, org_id: str, query: str) -> Dict[str, Any]:
+    try:
+        # Get context
+        context_package = self.retrieve_complete_context(org_id, query)
+        
+        # Generate response - ensure this returns a dict, not tuple
+        rag_result = self.answer_question_md(org_id, query)
+        
+        # Make sure rag_result is a dictionary
+        if isinstance(rag_result, tuple):
+            # If it's a tuple, convert to dict
+            response_text, sources = rag_result
+            rag_result = {
+                'response': response_text,
+                'sources': sources if sources else [],
+                'confidence': 0.8
+            }
+        
+        return {
+            'response': rag_result.get('response', 'No response generated'),
+            'context_used': context_package,
+            'confidence': rag_result.get('confidence', 0.5),
+            'sources': rag_result.get('sources', []),
+            'institutional_wisdom_applied': True
+        }
+        
+    except Exception as e:
+        print(f"Error in generate_perfect_response: {e}")
+        return {
+            'response': f'I encountered an error: {str(e)}',
+            'context_used': {},
+            'confidence': 0.0,
+            'sources': [],
+            'institutional_wisdom_applied': False
+        }
+```
+
+## 🎯 **IMMEDIATE ACTION:**
+
+1. **Add the debugging code above** to see the exact line causing the error
+2. **Check your `lib/rag.py`** - ensure all functions return consistent formats (dict vs tuple)
+3. **Verify your Flask route** handles both dict and tuple returns properly
+4. **Test with the killer demo question** once fixed
+
+This is a simple type mismatch issue that's easy to fix. Once resolved, you'll be back to demonstrating your $100K solution!
+
+**The error shows your system is working - it's just a return format issue. Fix this and you're ready to start selling!**

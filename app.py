@@ -65,13 +65,24 @@ def api_query():
         
         result = answer_question_md(org_id, query)
         
+        # Handle both tuple and dict returns for backward compatibility
+        if isinstance(result, tuple):
+            answer, sources = result
+            response_data = {
+                'answer': answer,
+                'sources': sources,
+                'processing_time_ms': 0
+            }
+        else:
+            response_data = result
+        
         return jsonify({
             "ok": True,
-            "response": result.get('answer', 'I could not find relevant information for your query.'),
-            "sources": result.get('sources', []),
+            "response": response_data.get('answer', 'I could not find relevant information for your query.'),
+            "sources": response_data.get('sources', []),
             "performance": {
-                "response_time_ms": result.get('processing_time_ms', 0),
-                "contexts_found": len(result.get('sources', []))
+                "response_time_ms": response_data.get('processing_time_ms', 0),
+                "contexts_found": len(response_data.get('sources', []))
             }
         })
         

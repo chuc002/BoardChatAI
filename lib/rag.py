@@ -6,8 +6,8 @@ import tiktoken
 client = OpenAI()
 
 # ==== CONFIG ====
-CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-3.5-turbo")
-EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-ada-002")
+CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4")
+EMBED_MODEL    = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 USE_VECTOR     = os.getenv("USE_VECTOR", "1") not in ("0","false","False","no","NO")
 
 MAX_CANDIDATES     = int(os.getenv("MAX_CANDIDATES", "24"))
@@ -484,4 +484,10 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
             max_tokens=600
         ).choices[0].message.content)
 
-    return (answer, meta)
+    # Return consistent dictionary format instead of tuple
+    return {
+        'answer': answer,
+        'sources': meta,
+        'processing_time_ms': 0,
+        'strategy': 'standard_rag'
+    }
