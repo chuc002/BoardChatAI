@@ -14,7 +14,7 @@ from collections import defaultdict
 import logging
 
 from lib.supa import supa
-from lib.pattern_recognition import GovernancePatternEngine
+from lib.pattern_recognition import PatternRecognitionEngine
 from lib.knowledge_graph import InstitutionalKnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class GovernanceIntelligence:
     
     def __init__(self, org_id: str):
         self.org_id = org_id
-        self.pattern_engine = GovernancePatternEngine(org_id)
+        self.pattern_engine = PatternRecognitionEngine(org_id)
         self.knowledge_graph = InstitutionalKnowledgeGraph(org_id)
         
         # Cache for frequently accessed data

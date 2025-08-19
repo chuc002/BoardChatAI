@@ -1,0 +1,251 @@
+# Create new file: lib/pattern_engine.py
+
+import json
+from datetime import datetime, timedelta
+from collections import defaultdict
+from typing import Dict, List, Any, Optional
+import numpy as np
+from lib.supabase_client import supa
+
+class PatternRecognitionEngine:
+    def __init__(self):
+        self.pattern_cache = {}
+        self.trend_cache = {}
+        
+    def analyze_decision_patterns(self, org_id: str) -> Dict[str, Any]:
+        """Identify all decision patterns in the organization's history"""
+        
+        # Get all historical decisions
+        decisions = supa.table("decision_registry").select("*").eq("org_id", org_id).execute().data
+        
+        patterns = {
+            'approval_patterns': self._analyze_approval_patterns(decisions),
+            'financial_patterns': self._analyze_financial_patterns(decisions),
+            'timing_patterns': self._analyze_timing_patterns(decisions),
+            'committee_patterns': self._analyze_committee_patterns(decisions),
+            'member_patterns': self._analyze_member_patterns(decisions)
+        }
+        
+        # Store patterns in database
+        self._store_patterns(org_id, patterns)
+        
+        return patterns
+    
+    def _analyze_approval_patterns(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Analyze what decisions get approved and why"""
+        
+        approval_analysis = {
+            'by_amount': defaultdict(list),
+            'by_type': defaultdict(list),
+            'by_committee': defaultdict(list),
+            'by_season': defaultdict(list),
+            'by_sponsor': defaultdict(list)
+        }
+        
+        for decision in decisions:
+            outcome = decision.get('outcome', 'unknown')
+            amount = decision.get('amount', 0)
+            decision_type = decision.get('decision_type', 'general')
+            committee = decision.get('committee', 'board')
+            date = decision.get('meeting_date')
+            sponsor = decision.get('proposed_by')
+            
+            # Amount-based patterns
+            amount_range = self._get_amount_range(amount)
+            approval_analysis['by_amount'][amount_range].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'type': decision_type,
+                'vote_margin': self._calculate_vote_margin(decision)
+            })
+            
+            # Type-based patterns
+            approval_analysis['by_type'][decision_type].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'timeline': self._calculate_timeline(decision),
+                'amendments': len(decision.get('amendments', []))
+            })
+            
+            # Committee patterns
+            approval_analysis['by_committee'][committee].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'type': decision_type,
+                'preparation_time': self._calculate_prep_time(decision)
+            })
+            
+            # Seasonal patterns
+            if date:
+                season = self._get_season(date)
+                approval_analysis['by_season'][season].append({
+                    'approved': outcome == 'approved',
+                    'type': decision_type,
+                    'amount': amount
+                })
+                
+            # Sponsor patterns
+            if sponsor:
+                approval_analysis['by_sponsor'][sponsor].append({
+                    'approved': outcome == 'approved',
+                    'amount': amount,
+                    'type': decision_type
+                })
+        
+        # Calculate success rates and patterns
+        patterns = {}
+        for category, data in approval_analysis.items():
+            patterns[category] = {}
+            for subcategory, items in data.items():
+                total = len(items)
+                approved = sum(1 for item in items if item['approved'])
+                patterns[category][subcategory] = {
+                    'approval_rate': approved / total if total > 0 else 0,
+                    'total_decisions': total,
+                    'average_amount': np.mean([item['amount'] for item in items if item['amount']]),
+                    'patterns': self._identify_subcategory_patterns(items)
+                }
+        
+        return patterns
+    
+    def _analyze_financial_patterns(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Analyze financial decision patterns and outcomes"""
+        
+        financial_patterns = {
+            'budget_variance': self._analyze_budget_variance(decisions),
+            'cost_escalation': self._analyze_cost_escalation(decisions),
+            'fee_increase_patterns': self._analyze_fee_patterns(decisions),
+            'vendor_cost_patterns': self._analyze_vendor_patterns(decisions),
+            'capital_vs_operational': self._analyze_capex_opex_patterns(decisions)
+        }
+        
+        return financial_patterns
+    
+    def predict_decision_outcome(self, proposed_decision: Dict[str, Any]) -> Dict[str, Any]:
+        """Predict outcome of a proposed decision based on historical patterns"""
+        
+        # Extract features from proposed decision
+        features = {
+            'amount': proposed_decision.get('amount', 0),
+            'type': proposed_decision.get('decision_type'),
+            'committee': proposed_decision.get('committee'),
+            'timing': proposed_decision.get('proposed_date'),
+            'sponsor': proposed_decision.get('proposed_by')
+        }
+        
+        # Find similar historical decisions
+        similar_decisions = self._find_similar_decisions(features)
+        
+        if not similar_decisions:
+            return {'prediction': 'insufficient_data', 'confidence': 0}
+        
+        # Calculate prediction based on patterns
+        prediction = self._calculate_prediction(similar_decisions, features)
+        
+        return {
+            'prediction': prediction['outcome'],
+            'confidence': prediction['confidence'],
+            'success_probability': prediction['success_rate'],
+            'typical_timeline': prediction['timeline'],
+            'risk_factors': prediction['risks'],
+            'success_factors': prediction['success_factors'],
+            'similar_decisions': [
+                {
+                    'date': d['meeting_date'],
+                    'description': d['description'],
+                    'outcome': d['outcome'],
+                    'lessons': d.get('lessons_learned')
+                } for d in similar_decisions[:5]
+            ],
+            'recommendations': prediction['recommendations']
+        }
+    
+    def _find_similar_decisions(self, features: Dict[str, Any]) -> List[Dict]:
+        """Find historically similar decisions"""
+        
+        # Get all decisions from database
+        all_decisions = supa.table("decision_registry").select("*").execute().data
+        
+        # Calculate similarity scores
+        scored_decisions = []
+        for decision in all_decisions:
+            similarity = self._calculate_similarity(features, decision)
+            if similarity > 0.3:  # Threshold for relevance
+                scored_decisions.append((similarity, decision))
+        
+        # Sort by similarity and return top matches
+        scored_decisions.sort(reverse=True)
+        return [decision for _, decision in scored_decisions[:20]]
+    
+    def _calculate_similarity(self, features: Dict, decision: Dict) -> float:
+        """Calculate similarity between proposed and historical decision"""
+        
+        similarity_score = 0.0
+        total_weight = 0.0
+        
+        # Amount similarity (weight: 0.3)
+        if features.get('amount') and decision.get('amount'):
+            amount_ratio = min(features['amount'], decision['amount']) / max(features['amount'], decision['amount'])
+            similarity_score += amount_ratio * 0.3
+            total_weight += 0.3
+        
+        # Type similarity (weight: 0.4)
+        if features.get('type') == decision.get('decision_type'):
+            similarity_score += 0.4
+            total_weight += 0.4
+        
+        # Committee similarity (weight: 0.2)
+        if features.get('committee') == decision.get('committee'):
+            similarity_score += 0.2
+            total_weight += 0.2
+        
+        # Timing similarity (weight: 0.1)
+        if features.get('timing') and decision.get('meeting_date'):
+            # Similar season/time of year
+            season_match = self._get_season(features['timing']) == self._get_season(decision['meeting_date'])
+            if season_match:
+                similarity_score += 0.1
+                total_weight += 0.1
+        
+        return similarity_score / total_weight if total_weight > 0 else 0
+    
+    def generate_governance_insights(self, org_id: str) -> Dict[str, Any]:
+        """Generate comprehensive governance insights"""
+        
+        patterns = self.analyze_decision_patterns(org_id)
+        
+        insights = {
+            'decision_velocity': self._calculate_decision_velocity(org_id),
+            'approval_efficiency': self._calculate_approval_efficiency(patterns),
+            'financial_health_indicators': self._assess_financial_health(patterns),
+            'governance_maturity_score': self._calculate_governance_maturity(patterns),
+            'risk_indicators': self._identify_risk_indicators(patterns),
+            'optimization_opportunities': self._identify_optimizations(patterns)
+        }
+        
+        return insights
+
+    # Helper methods
+    def _get_amount_range(self, amount: float) -> str:
+        if amount < 1000: return 'under_1k'
+        elif amount < 5000: return '1k_5k'
+        elif amount < 25000: return '5k_25k'
+        elif amount < 100000: return '25k_100k'
+        else: return 'over_100k'
+    
+    def _get_season(self, date_str: str) -> str:
+        try:
+            date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            month = date.month
+            if month in [12, 1, 2]: return 'winter'
+            elif month in [3, 4, 5]: return 'spring'
+            elif month in [6, 7, 8]: return 'summer'
+            else: return 'fall'
+        except:
+            return 'unknown'
+    
+    def _calculate_vote_margin(self, decision: Dict) -> float:
+        vote_for = decision.get('vote_for', 0)
+        vote_against = decision.get('vote_against', 0)
+        total = vote_for + vote_against
+        return (vote_for - vote_against) / total if total > 0 else 0

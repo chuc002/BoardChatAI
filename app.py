@@ -18,6 +18,7 @@ from lib.board_continuity_brain import (perfect_recall_query, process_document_w
 from lib.perfect_memory import (record_institutional_interaction, record_complete_institutional_decision,
                               get_institutional_memory_search, get_institutional_intelligence_report,
                               get_perfect_memory_metrics)
+from lib.pattern_recognition import (analyze_governance_patterns, predict_proposal_outcome, get_pattern_insights)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -592,6 +593,38 @@ def memory_metrics():
     try:
         metrics = get_perfect_memory_metrics(ORG_ID)
         return jsonify({"ok": True, "metrics": metrics})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/governance-patterns")
+def governance_patterns():
+    """Analyze governance patterns."""
+    try:
+        analysis = analyze_governance_patterns(ORG_ID)
+        return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/predict-proposal")
+def predict_proposal():
+    """Predict proposal outcome."""
+    try:
+        proposal_data = request.json
+        if not proposal_data:
+            return jsonify({"ok": False, "error": "No proposal data provided"})
+        
+        prediction = predict_proposal_outcome(ORG_ID, proposal_data)
+        return jsonify({"ok": True, "prediction": prediction})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/governance-insights")
+def governance_insights():
+    """Get pattern insights."""
+    try:
+        insight_type = request.args.get('type', 'comprehensive')
+        insights = get_pattern_insights(ORG_ID, insight_type)
+        return jsonify({"ok": True, "insights": insights})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
