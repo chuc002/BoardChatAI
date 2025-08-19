@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 - **🔥 SECTION-AWARE INGESTION SYSTEM**: Created lib/enhanced_ingest.py with intelligent chunking that preserves complete policy sections, prevents mid-sentence breaks of critical information (like reinstatement percentages), and uses regex pattern matching to identify and preserve complete sections
 - **Contextual Overlap Processing**: Replaced character-based overlap with contextual overlap that preserves complete meaning and context between chunks
 - **Percentage Sequence Validation**: Added validation to ensure no chunk ends with incomplete numbers or percentage references, specifically addressing reinstatement percentage capture issues
+- **🧠 INSTITUTIONAL MEMORY SYSTEM**: Created comprehensive decision registry, historical pattern analysis, enhanced document chunking with decision detection, institutional knowledge capture, and board member insight tracking for perfect organizational recall
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
@@ -47,10 +48,12 @@ Preferred communication style: Simple, everyday language.
 - **Job Status API**: Real-time endpoints to track background processing progress
 
 ### Data Storage Solutions
-- **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history
+- **Primary Database**: Supabase (PostgreSQL) for document metadata, chat history, and institutional memory
 - **Document Storage**: Local file system with secure filename handling
 - **Vector Storage**: Embedded within Supabase for semantic search capabilities
-- **Data Models**: Document, DocumentChunk, and QA_History entities with org_id/created_by relationships
+- **Core Data Models**: Document, DocumentChunk, and QA_History entities with org_id/created_by relationships
+- **🧠 Institutional Memory Models**: Decision registry, historical patterns, institutional knowledge, board member insights, and decision participation tracking for complete organizational recall
+- **Enhanced Analytics**: Cross-referential analysis of decisions, voting patterns, success rates, and institutional knowledge preservation
 
 ### Authentication and Authorization
 - **Strategy**: Development mode using environment variables (DEV_ORG_ID and DEV_USER_ID)

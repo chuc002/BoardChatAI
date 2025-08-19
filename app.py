@@ -2,6 +2,7 @@ import os, json
 from flask import Flask, render_template, request, jsonify
 from lib.ingest import upsert_document
 from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement_coverage
+from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -193,6 +194,25 @@ def validate_document_processing(doc_id):
     try:
         analysis = validate_reinstatement_coverage(doc_id)
         return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/analyze/<doc_id>")
+def analyze_document_institutional_memory(doc_id):
+    """Process document for institutional memory extraction."""
+    try:
+        result = process_document_for_institutional_memory(doc_id, ORG_ID, USER_ID)
+        return jsonify({"ok": True, "result": result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/insights")
+def get_organizational_insights():
+    """Get institutional insights and knowledge."""
+    try:
+        query = request.args.get('q', None)
+        insights = get_institutional_insights(ORG_ID, query)
+        return jsonify({"ok": True, "insights": insights})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
