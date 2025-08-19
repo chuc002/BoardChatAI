@@ -5,6 +5,7 @@ from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
 from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
+from lib.outcome_predictor import predict_decision_outcome, get_prediction_accuracy_metrics
 from lib.knowledge_graph import (build_knowledge_graph, analyze_decision_ripple_effects, 
                                 get_member_complete_analysis, trace_policy_evolution,
                                 find_governance_cycles, query_knowledge_graph)
@@ -625,6 +626,63 @@ def governance_insights():
         insight_type = request.args.get('type', 'comprehensive')
         insights = get_pattern_insights(ORG_ID, insight_type)
         return jsonify({"ok": True, "insights": insights})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+# Enhanced Decision Outcome Prediction Endpoints
+
+@app.post("/predict-decision-outcome")
+def predict_decision_outcome_endpoint():
+    """Comprehensive decision outcome prediction with detailed analysis."""
+    try:
+        decision_data = request.json
+        if not decision_data:
+            return jsonify({"ok": False, "error": "No decision data provided"})
+        
+        prediction = predict_decision_outcome(ORG_ID, decision_data)
+        return jsonify({"ok": True, "prediction": prediction})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/prediction-accuracy")
+def prediction_accuracy():
+    """Get prediction accuracy metrics for system validation."""
+    try:
+        metrics = get_prediction_accuracy_metrics(ORG_ID)
+        return jsonify({"ok": True, "metrics": metrics})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/scenario-analysis")
+def scenario_analysis():
+    """Perform scenario analysis for decision variations."""
+    try:
+        data = request.json
+        base_decision = data.get('base_decision', {})
+        scenarios = data.get('scenarios', [])
+        
+        if not base_decision:
+            return jsonify({"ok": False, "error": "No base decision provided"})
+        
+        # Analyze each scenario
+        scenario_results = []
+        for i, scenario in enumerate(scenarios):
+            # Merge scenario changes with base decision
+            scenario_decision = {**base_decision, **scenario}
+            prediction = predict_decision_outcome(ORG_ID, scenario_decision)
+            
+            scenario_results.append({
+                'scenario_id': i + 1,
+                'scenario_name': scenario.get('name', f'Scenario {i + 1}'),
+                'changes': scenario,
+                'prediction': prediction
+            })
+        
+        return jsonify({
+            "ok": True, 
+            "base_prediction": predict_decision_outcome(ORG_ID, base_decision),
+            "scenarios": scenario_results
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
