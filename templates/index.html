@@ -39,6 +39,142 @@
         .insight-card:hover {
             transform: translateY(-2px);
         }
+        
+        /* Document Processing Micro-animations */
+        .upload-progress {
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-progress::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .processing-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            border-radius: 2px;
+            transition: width 0.3s ease-out;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+            to { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+        }
+        
+        .success-check {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #10b981;
+            position: relative;
+            animation: scaleIn 0.3s ease-out;
+        }
+        
+        .success-check::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+        
+        .error-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .document-card {
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+        
+        .document-card.uploading {
+            animation: float 2s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .processing-dots {
+            display: inline-block;
+        }
+        
+        .processing-dots::after {
+            content: '';
+            animation: dots 1.5s linear infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .chunk-animation {
+            display: inline-block;
+            margin: 0 2px;
+            opacity: 0;
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        .chunk-animation:nth-child(1) { animation-delay: 0.1s; }
+        .chunk-animation:nth-child(2) { animation-delay: 0.2s; }
+        .chunk-animation:nth-child(3) { animation-delay: 0.3s; }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -105,7 +241,7 @@
                             <div class="w-2 h-2 bg-blue-500 rounded-full pulse-loading" style="animation-delay: 0.1s;"></div>
                             <div class="w-2 h-2 bg-blue-500 rounded-full pulse-loading" style="animation-delay: 0.2s;"></div>
                         </div>
-                        BoardContinuity is analyzing institutional memory...
+                        <span class="processing-dots">BoardContinuity is analyzing institutional memory</span>
                     </div>
                     
                     <!-- Input Area -->
@@ -182,15 +318,21 @@
                         <i class="fas fa-upload mr-2 text-purple-600"></i>
                         Document Intelligence
                     </h3>
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <div id="upload-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors document-card">
                         <input type="file" id="file-upload" accept=".pdf" class="hidden" onchange="uploadDocument()">
-                        <button onclick="document.getElementById('file-upload').click()" class="text-blue-600 hover:text-blue-800">
-                            <div class="text-3xl mb-2">📄</div>
-                            <div class="font-medium">Upload Board Documents</div>
-                            <div class="text-sm text-gray-500 mt-1">PDF files • Perfect extraction guaranteed</div>
+                        <button id="upload-button" onclick="document.getElementById('file-upload').click()" class="text-blue-600 hover:text-blue-800">
+                            <div id="upload-icon" class="text-3xl mb-2">📄</div>
+                            <div id="upload-text" class="font-medium">Upload Board Documents</div>
+                            <div id="upload-subtext" class="text-sm text-gray-500 mt-1">PDF files • Perfect extraction guaranteed</div>
                         </button>
                     </div>
                     <div id="upload-status" class="mt-3 text-sm"></div>
+                    <div id="upload-progress" class="mt-2 hidden">
+                        <div class="bg-gray-200 rounded-full h-2 mb-2">
+                            <div id="progress-bar" class="progress-bar h-2 rounded-full"></div>
+                        </div>
+                        <div id="progress-text" class="text-xs text-gray-600 text-center"></div>
+                    </div>
                 </div>
                 
                 <!-- Quick Actions -->
@@ -403,16 +545,16 @@
                 senderLabel = '';
             } else if (sender === 'veteran') {
                 bubbleClass = 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-gray-800';
-                iconClass = '<i class="fas fa-user-tie text-amber-600 mr-2"></i>';
-                senderLabel = '<div class="text-xs text-amber-600 font-medium mb-2">30-Year Veteran Wisdom</div>';
+                iconClass = '<div class="processing-spinner mr-2" style="width: 16px; height: 16px; border-width: 2px;"></div>';
+                senderLabel = '<div class="text-xs text-amber-600 font-medium mb-2 flex items-center"><i class="fas fa-user-tie mr-1"></i>30-Year Veteran Wisdom</div>';
             } else if (type === 'error') {
-                bubbleClass = 'bg-red-50 border border-red-200 text-red-800';
+                bubbleClass = 'bg-red-50 border border-red-200 text-red-800 error-shake';
                 iconClass = '<i class="fas fa-exclamation-circle text-red-600 mr-2"></i>';
                 senderLabel = '';
             } else {
                 bubbleClass = 'bg-white border border-gray-200 text-gray-800';
                 iconClass = '<i class="fas fa-robot text-blue-600 mr-2"></i>';
-                senderLabel = '<div class="text-xs text-blue-600 font-medium mb-2">BoardContinuity AI</div>';
+                senderLabel = '<div class="text-xs text-blue-600 font-medium mb-2 flex items-center"><i class="fas fa-brain mr-1"></i>BoardContinuity AI</div>';
             }
             
             bubbleDiv.className = `inline-block max-w-3xl p-4 rounded-lg ${bubbleClass}`;
@@ -420,6 +562,13 @@
             // Format content with line breaks and better structure
             const formattedContent = formatContent(content);
             bubbleDiv.innerHTML = senderLabel + iconClass + formattedContent;
+            
+            // Replace spinner with robot icon after a moment for AI messages
+            if (sender !== 'user' && sender !== 'veteran' && type !== 'error') {
+                setTimeout(() => {
+                    bubbleDiv.innerHTML = bubbleDiv.innerHTML.replace('processing-spinner', 'fas fa-robot text-blue-600');
+                }, 1000);
+            }
             
             messageDiv.appendChild(bubbleDiv);
             
@@ -431,7 +580,7 @@
                 const sourceLinks = sources.map((s, idx) => {
                     const sourceText = `${s.source || s.title || 'Document'} (p.${s.page || s.page_number || '?'})`;
                     return `<button onclick="showCitation('${encodeURIComponent(JSON.stringify(s))}')" 
-                                    class="text-blue-500 hover:text-blue-700 underline mr-2">
+                                    class="text-blue-500 hover:text-blue-700 underline mr-2 chunk-animation" style="animation-delay: ${idx * 0.1}s">
                                 [${idx + 1}] ${sourceText}
                             </button>`;
                 }).join(' ');
@@ -503,13 +652,8 @@
             
             if (!file) return;
             
-            const statusDiv = document.getElementById('upload-status');
-            statusDiv.innerHTML = `
-                <div class="flex items-center text-blue-600">
-                    <div class="pulse-loading w-4 h-4 bg-blue-600 rounded-full mr-2"></div>
-                    Processing with perfect extraction...
-                </div>
-            `;
+            // Start upload animations
+            startUploadAnimation(file.name);
             
             const formData = new FormData();
             formData.append('file', file);
@@ -523,42 +667,185 @@
                 const data = await response.json();
                 
                 if (data.success || data.ok) {
-                    statusDiv.innerHTML = `
-                        <div class="text-green-600">
-                            <i class="fas fa-check-circle mr-1"></i>
-                            Perfect extraction completed<br>
-                            <span class="text-xs text-gray-600">
-                                ${data.chunks_created || data.total_chunks || 0} sections • 
-                                ${data.decisions_extracted || 0} decisions extracted
-                            </span>
-                        </div>
-                    `;
+                    showSuccessAnimation(data);
                     
-                    // Refresh system metrics
+                    // Refresh system metrics with delay for better UX
                     setTimeout(() => {
                         loadSystemMetrics();
                         loadIntelligencePanel();
                     }, 1000);
                 } else {
-                    statusDiv.innerHTML = `
-                        <div class="text-red-600">
-                            <i class="fas fa-exclamation-circle mr-1"></i>
-                            ${data.error || 'Processing failed'}
-                        </div>
-                    `;
+                    showErrorAnimation(data.error || 'Processing failed');
                 }
                 
             } catch (error) {
-                statusDiv.innerHTML = `
-                    <div class="text-red-600">
-                        <i class="fas fa-exclamation-circle mr-1"></i>
-                        Upload failed - please try again
-                    </div>
-                `;
+                showErrorAnimation('Upload failed - please try again');
                 console.error('Upload error:', error);
             }
             
             fileInput.value = '';
+        }
+        
+        function startUploadAnimation(filename) {
+            const uploadZone = document.getElementById('upload-zone');
+            const uploadIcon = document.getElementById('upload-icon');
+            const uploadText = document.getElementById('upload-text');
+            const uploadSubtext = document.getElementById('upload-subtext');
+            const statusDiv = document.getElementById('upload-status');
+            const progressDiv = document.getElementById('upload-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            // Add uploading class for floating animation
+            uploadZone.classList.add('uploading', 'upload-progress');
+            
+            // Change upload zone appearance
+            uploadIcon.innerHTML = '<div class="processing-spinner"></div>';
+            uploadText.textContent = 'Processing Document';
+            uploadSubtext.innerHTML = `<span class="processing-dots">Analyzing ${filename}</span>`;
+            
+            // Show progress bar
+            progressDiv.classList.remove('hidden');
+            
+            // Simulate processing stages with progress bar
+            let progress = 0;
+            const stages = [
+                { progress: 20, text: 'Reading PDF structure', delay: 500 },
+                { progress: 40, text: 'Extracting text content', delay: 800 },
+                { progress: 60, text: 'Creating intelligent chunks', delay: 1200 },
+                { progress: 80, text: 'Generating embeddings', delay: 1500 },
+                { progress: 95, text: 'Building knowledge graph', delay: 2000 }
+            ];
+            
+            stages.forEach(stage => {
+                setTimeout(() => {
+                    progressBar.style.width = `${stage.progress}%`;
+                    progressText.innerHTML = `
+                        <span class="chunk-animation">${stage.text}</span>
+                        <span class="chunk-animation">•</span>
+                        <span class="chunk-animation">${stage.progress}%</span>
+                    `;
+                }, stage.delay);
+            });
+            
+            // Show initial status
+            statusDiv.innerHTML = `
+                <div class="flex items-center text-blue-600">
+                    <div class="processing-spinner mr-2"></div>
+                    <span>Perfect extraction in progress<span class="processing-dots"></span></span>
+                </div>
+            `;
+        }
+        
+        function showSuccessAnimation(data) {
+            const uploadZone = document.getElementById('upload-zone');
+            const uploadIcon = document.getElementById('upload-icon');
+            const uploadText = document.getElementById('upload-text');
+            const uploadSubtext = document.getElementById('upload-subtext');
+            const statusDiv = document.getElementById('upload-status');
+            const progressDiv = document.getElementById('upload-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            // Complete progress bar
+            progressBar.style.width = '100%';
+            progressText.innerHTML = `
+                <span class="chunk-animation">Perfect extraction completed</span>
+                <span class="chunk-animation">•</span>
+                <span class="chunk-animation">100%</span>
+            `;
+            
+            setTimeout(() => {
+                // Remove uploading animations
+                uploadZone.classList.remove('uploading', 'upload-progress');
+                
+                // Show success state
+                uploadIcon.innerHTML = '<div class="success-check"></div>';
+                uploadText.textContent = 'Document Processed Successfully';
+                uploadSubtext.innerHTML = `
+                    <span class="text-green-600">
+                        ${data.chunks_created || data.total_chunks || 0} sections • 
+                        ${data.decisions_extracted || 0} decisions extracted
+                    </span>
+                `;
+                
+                statusDiv.innerHTML = `
+                    <div class="text-green-600 flex items-center">
+                        <div class="success-check mr-2"></div>
+                        <div>
+                            Perfect extraction completed
+                            <div class="text-xs mt-1">
+                                <span class="chunk-animation">Knowledge graph updated</span>
+                                <span class="chunk-animation">•</span>
+                                <span class="chunk-animation">Ready for queries</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Hide progress bar after a moment
+                setTimeout(() => {
+                    progressDiv.classList.add('hidden');
+                    
+                    // Reset to original state after showing success
+                    setTimeout(() => {
+                        resetUploadZone();
+                    }, 3000);
+                }, 1000);
+            }, 500);
+        }
+        
+        function showErrorAnimation(errorMessage) {
+            const uploadZone = document.getElementById('upload-zone');
+            const uploadIcon = document.getElementById('upload-icon');
+            const uploadText = document.getElementById('upload-text');
+            const uploadSubtext = document.getElementById('upload-subtext');
+            const statusDiv = document.getElementById('upload-status');
+            const progressDiv = document.getElementById('upload-progress');
+            
+            // Remove uploading animations and add error shake
+            uploadZone.classList.remove('uploading', 'upload-progress');
+            uploadZone.classList.add('error-shake');
+            
+            // Show error state
+            uploadIcon.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-3xl"></i>';
+            uploadText.textContent = 'Processing Failed';
+            uploadSubtext.innerHTML = '<span class="text-red-500">Please try again</span>';
+            
+            statusDiv.innerHTML = `
+                <div class="text-red-600 flex items-center">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <div>
+                        ${errorMessage}
+                        <div class="text-xs mt-1">Check file format and try again</div>
+                    </div>
+                </div>
+            `;
+            
+            // Hide progress bar
+            progressDiv.classList.add('hidden');
+            
+            // Remove error shake
+            setTimeout(() => {
+                uploadZone.classList.remove('error-shake');
+            }, 500);
+            
+            // Reset to original state
+            setTimeout(() => {
+                resetUploadZone();
+            }, 4000);
+        }
+        
+        function resetUploadZone() {
+            const uploadIcon = document.getElementById('upload-icon');
+            const uploadText = document.getElementById('upload-text');
+            const uploadSubtext = document.getElementById('upload-subtext');
+            const statusDiv = document.getElementById('upload-status');
+            
+            uploadIcon.textContent = '📄';
+            uploadText.textContent = 'Upload Board Documents';
+            uploadSubtext.innerHTML = 'PDF files • Perfect extraction guaranteed';
+            statusDiv.innerHTML = '';
         }
         
         async function getPredictionAnalysis() {
