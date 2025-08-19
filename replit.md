@@ -42,6 +42,13 @@ OpenAI GPT-4o-mini is the primary language model for chat responses, with automa
 - **Supabase**: PostgreSQL database hosting and management.
 - **OpenAI API**: Provides GPT models (GPT-4o, GPT-4o-mini) for chat completion and text-embedding-3-small for embeddings.
 
+### Enterprise Scalability (August 2025)
+**Enterprise Testing Framework (tests/test_enterprise_scale.py)**: Comprehensive performance validation system testing document capacity, query performance, memory efficiency, and concurrent load handling. Validates system readiness for 100+ document enterprise deployments with detailed assessment reports including response time benchmarking, memory usage analysis, and concurrent query handling validation.
+
+**Batch Processing System (lib/batch_processor.py)**: Enterprise-grade document ingestion with memory management, parallel processing, and batch optimization. Supports configurable worker pools, automatic memory monitoring, and progressive batch processing for large-scale document uploads. Includes processing statistics, enterprise capacity validation, and performance estimation for production deployments.
+
+**Enterprise Monitoring (lib/enterprise_monitoring.py)**: Production-ready performance monitoring with real-time metrics collection, alert thresholds, and optimization recommendations. Features function-level performance tracking, memory usage analysis, error rate monitoring, and automated health assessments. Provides comprehensive performance summaries and system optimization guidance for enterprise operations.
+
 ### Python Libraries
 - **Flask**: Web framework.
 - **Flask-Login**: User session management.
