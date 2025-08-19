@@ -175,6 +175,151 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Enhanced UI Improvements */
+        .gradient-bg {
+            background: linear-gradient(135deg, #1f4e79 0%, #2d5a87 50%, #1f4e79 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .inner-shadow {
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Enhanced typing animation in chat */
+        .typing-indicator {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            display: none;
+        }
+        
+        .typing-indicator.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+        
+        /* Message animations */
+        .message-enter {
+            animation: messageSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Enhanced brain icon */
+        .brain-pulse {
+            animation: brainPulse 2s infinite ease-in-out;
+        }
+        
+        @keyframes brainPulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.05); opacity: 1; }
+        }
+        
+        /* Hover effects for suggestion buttons */
+        .suggestion-btn {
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .suggestion-btn:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+        
+        /* Enhanced input styling */
+        .input-enhanced {
+            transition: all 0.2s ease;
+        }
+        
+        .input-enhanced:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+        }
+        
+        /* Status indicators */
+        .status-indicator {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: statusShimmer 2s infinite;
+        }
+        
+        @keyframes statusShimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        /* Enhanced scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -184,10 +329,10 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold flex items-center">
-                        <i class="fas fa-brain mr-3"></i>
+                        <div class="text-4xl brain-pulse mr-3">🧠</div>
                         BoardContinuity
                     </h1>
-                    <p class="text-blue-100 mt-2">30-Year Veteran Board Member • Perfect Institutional Memory</p>
+                    <p class="text-blue-100 mt-2 font-medium">30-Year Veteran Board Member • Perfect Institutional Memory</p>
                 </div>
                 <div class="text-right">
                     <div class="text-sm text-blue-100">Live System Status</div>
@@ -215,55 +360,80 @@
                         </button>
                     </div>
                     
-                    <!-- Chat Messages -->
-                    <div id="chat-messages" class="h-96 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg border">
-                        <div class="text-center text-gray-500 py-8">
-                            <div class="text-4xl mb-4">🧠</div>
-                            <p class="text-lg font-medium">Welcome to BoardContinuity</p>
-                            <p class="mb-4">I have perfect recall of your organization's entire history.</p>
-                            <div class="space-y-2 text-sm">
-                                <div class="p-3 bg-blue-50 rounded-lg text-left">
-                                    <strong>Try asking:</strong>
-                                    <ul class="mt-2 space-y-1 text-blue-700">
-                                        <li>• "What are all our membership fees and transfer rules?"</li>
-                                        <li>• "Show me decision patterns for budget approvals"</li>
-                                        <li>• "What are the unwritten rules about major decisions?"</li>
-                                    </ul>
+                    <!-- Enhanced Chat Messages Area -->
+                    <div id="chat-messages" class="h-96 overflow-y-auto mb-6 p-4 bg-gray-50 rounded-xl inner-shadow custom-scrollbar">
+                        <!-- Welcome Message with Enhanced Styling -->
+                        <div class="text-center py-12">
+                            <div class="text-6xl mb-4 brain-pulse">🧠</div>
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Welcome to BoardContinuity</h3>
+                            <p class="text-gray-600 mb-6 text-lg">I have perfect recall of your organization's entire history.</p>
+                            
+                            <!-- Enhanced Try Asking Section -->
+                            <div class="max-w-md mx-auto">
+                                <p class="text-gray-700 font-medium mb-4">Try asking:</p>
+                                <div class="space-y-2">
+                                    <button onclick="askPredefined('What are all our membership fees and transfer rules?')" 
+                                            class="suggestion-btn w-full text-left p-3 text-sm bg-white rounded-lg shadow-sm hover:shadow-md">
+                                        <span class="text-blue-600 font-medium">💰</span> "What are all our membership fees and transfer rules?"
+                                    </button>
+                                    <button onclick="askPredefined('Show me decision patterns for budget approvals')" 
+                                            class="suggestion-btn w-full text-left p-3 text-sm bg-white rounded-lg shadow-sm hover:shadow-md">
+                                        <span class="text-green-600 font-medium">📊</span> "Show me decision patterns for budget approvals"
+                                    </button>
+                                    <button onclick="askPredefined('What are the unwritten rules about major decisions?')" 
+                                            class="suggestion-btn w-full text-left p-3 text-sm bg-white rounded-lg shadow-sm hover:shadow-md">
+                                        <span class="text-purple-600 font-medium">🤝</span> "What are the unwritten rules about major decisions?"
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Typing Indicator -->
-                    <div id="typing-indicator" class="typing-indicator text-gray-500 italic mb-2 flex items-center">
-                        <div class="flex space-x-1 mr-2">
-                            <div class="w-2 h-2 bg-blue-500 rounded-full pulse-loading"></div>
-                            <div class="w-2 h-2 bg-blue-500 rounded-full pulse-loading" style="animation-delay: 0.1s;"></div>
-                            <div class="w-2 h-2 bg-blue-500 rounded-full pulse-loading" style="animation-delay: 0.2s;"></div>
+                    <!-- Enhanced Typing Indicator -->
+                    <div id="typing-indicator" class="typing-indicator mb-4">
+                        <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg message-enter">
+                            <div class="text-lg brain-pulse">🧠</div>
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-blue-700 font-medium">BoardContinuity is analyzing institutional memory</span>
+                                    <div class="typing-dots">
+                                        <div class="typing-dot"></div>
+                                        <div class="typing-dot"></div>
+                                        <div class="typing-dot"></div>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-blue-600 mt-1">Searching through decades of governance decisions...</div>
+                            </div>
                         </div>
-                        <span class="processing-dots">BoardContinuity is analyzing institutional memory</span>
                     </div>
                     
-                    <!-- Input Area -->
-                    <div class="flex gap-2">
-                        <div class="relative flex-1">
+                    <!-- Enhanced Input Area -->
+                    <div class="flex gap-3">
+                        <div class="flex-1 relative">
                             <input 
                                 type="text" 
                                 id="query-input" 
                                 placeholder="Ask about any governance decision, policy, or precedent..."
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                                class="input-enhanced w-full p-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
                                 onkeypress="handleKeyPress(event)"
                             >
-                            <button onclick="sendQuery()" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
                         </div>
                         <button 
                             onclick="sendQuery()" 
                             id="send-button"
-                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
+                            class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                         >
-                            <i class="fas fa-search mr-2"></i>Ask
+                            <span class="flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Ask
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -534,7 +704,7 @@
             const messagesContainer = document.getElementById('chat-messages');
             
             const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-4 message-fade-in ${sender === 'user' ? 'text-right' : 'text-left'}`;
+            messageDiv.className = `mb-4 message-enter ${sender === 'user' ? 'text-right' : 'text-left'}`;
             
             const bubbleDiv = document.createElement('div');
             let bubbleClass, iconClass, senderLabel;
@@ -591,6 +761,12 @@
             
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Function for predefined questions
+        function askPredefined(question) {
+            document.getElementById('query-input').value = question;
+            sendQuery();
         }
         
         function formatContent(content) {
