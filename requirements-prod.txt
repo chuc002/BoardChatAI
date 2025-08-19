@@ -1,0 +1,28 @@
+# Production requirements for BoardContinuity MVP
+# Core application dependencies
+flask==3.0.0
+flask-login==0.6.3
+flask-sqlalchemy==3.1.1
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+werkzeug==3.0.1
+
+# AI and ML dependencies
+openai==1.6.1
+
+# PDF processing
+pypdf2==3.0.1
+
+# Database and storage
+supabase==2.3.0
+
+# Email validation
+email-validator==2.1.0
+
+# Production monitoring and performance
+redis==5.0.1
+prometheus-client==0.19.0
+sentry-sdk[flask]==1.40.0
+
+# Security
+python-dotenv==1.0.0

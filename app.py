@@ -1,5 +1,18 @@
 import os, json
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+
+# Import monitoring conditionally for production
+try:
+    from monitoring import performance_monitor, get_system_metrics, check_system_health
+    MONITORING_AVAILABLE = True
+except ImportError:
+    MONITORING_AVAILABLE = False
+    performance_monitor = None
+    def get_system_metrics():
+        return {"error": "Monitoring not available"}
+    def check_system_health():
+        return {"healthy": True, "warnings": [], "metrics": {}}
 from lib.ingest import upsert_document
 from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement_coverage
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
@@ -24,6 +37,10 @@ from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
 app = Flask(__name__)
+
+# Initialize production monitoring
+if os.getenv('FLASK_ENV') == 'production' and MONITORING_AVAILABLE and performance_monitor:
+    performance_monitor.init_app(app)
 
 ORG_ID = os.getenv("DEV_ORG_ID")
 USER_ID = os.getenv("DEV_USER_ID")
@@ -60,6 +77,47 @@ def api_query():
         
     except Exception as e:
         return jsonify({"error": str(e)})
+
+@app.get("/api/health")
+def health_check():
+    """Comprehensive health check endpoint for production monitoring."""
+    try:
+        # Check database connectivity
+        from lib.supa import supa
+        supa.table("documents").select("id").limit(1).execute()
+        
+        # Get system health
+        system_health = check_system_health()
+        
+        status = "healthy" if system_health['healthy'] else "degraded"
+        status_code = 200 if system_health['healthy'] else 200  # Still return 200 for degraded
+        
+        return jsonify({
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "services": {
+                "database": "ok",
+                "application": "ok"
+            },
+            "system": system_health,
+            "version": "1.0.0"
+        }), status_code
+        
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat(),
+            "system": get_system_metrics()
+        }), 503
+
+@app.get("/api/metrics")
+def metrics():
+    """System metrics endpoint for monitoring."""
+    try:
+        return jsonify(get_system_metrics())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ---- Documents ----
 @app.get("/docs")
