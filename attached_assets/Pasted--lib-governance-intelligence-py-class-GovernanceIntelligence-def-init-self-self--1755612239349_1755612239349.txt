@@ -1,0 +1,55 @@
+# lib/governance_intelligence.py
+class GovernanceIntelligence:
+    def __init__(self):
+        self.decision_patterns = {}
+        self.member_patterns = {}
+        self.financial_patterns = {}
+        
+    def analyze_decision(self, new_decision):
+        """Provide complete historical context for any decision"""
+        similar_decisions = self._find_similar_decisions(new_decision)
+        
+        analysis = {
+            'precedents': [],
+            'success_probability': 0,
+            'typical_timeline': {},
+            'common_amendments': [],
+            'risk_factors': [],
+            'member_sentiment_prediction': {},
+            'financial_impact_forecast': {}
+        }
+        
+        for decision in similar_decisions:
+            # Analyze what happened
+            analysis['precedents'].append({
+                'date': decision['date'],
+                'outcome': decision['outcome'],
+                'vote': f"{decision['vote_for']}-{decision['vote_against']}",
+                'implementation_issues': decision['issues'],
+                'member_feedback': decision['feedback'],
+                'actual_vs_projected': decision['variance']
+            })
+        
+        # Calculate success probability
+        successful = [d for d in similar_decisions if d['outcome'] == 'successful']
+        analysis['success_probability'] = len(successful) / len(similar_decisions)
+        
+        # Identify patterns
+        analysis['patterns'] = self._identify_patterns(similar_decisions)
+        
+        return analysis
+    
+    def predict_outcome(self, proposal):
+        """Predict outcome with reasoning"""
+        features = self._extract_features(proposal)
+        historical_outcomes = self._get_historical_outcomes(features)
+        
+        prediction = {
+            'likely_outcome': self._calculate_likely_outcome(historical_outcomes),
+            'confidence': self._calculate_confidence(historical_outcomes),
+            'key_factors': self._identify_key_factors(historical_outcomes),
+            'recommended_modifications': self._suggest_improvements(historical_outcomes),
+            'optimal_timing': self._calculate_optimal_timing(historical_outcomes)
+        }
+        
+        return prediction

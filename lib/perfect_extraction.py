@@ -924,11 +924,21 @@ class PerfectExtractor:
         for pattern in percentage_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                entities['percentages'].append({
-                    'value': self._text_to_percentage(match.group(1) if match.lastindex >= 1 else match.group(0)),
-                    'raw_text': match.group(0),
-                    'position': match.start()
-                })
+                # Safe extraction of percentage value
+                try:
+                    if match.lastindex and match.lastindex >= 1:
+                        value_text = match.group(1)
+                    else:
+                        value_text = match.group(0)
+                    
+                    entities['percentages'].append({
+                        'value': self._text_to_percentage(value_text),
+                        'raw_text': match.group(0),
+                        'position': match.start()
+                    })
+                except (AttributeError, IndexError):
+                    # Skip problematic matches
+                    continue
         
         # Enhanced monetary amount extraction
         amount_patterns = [

@@ -8,6 +8,8 @@ from lib.pattern_recognition import analyze_governance_patterns, predict_proposa
 from lib.knowledge_graph import (build_knowledge_graph, analyze_decision_ripple_effects, 
                                 get_member_complete_analysis, trace_policy_evolution,
                                 find_governance_cycles, query_knowledge_graph)
+from lib.governance_intelligence import (analyze_decision_comprehensive, predict_decision_outcome,
+                                       get_decision_context, analyze_governance_trends, generate_board_insights)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -355,6 +357,60 @@ def query_graph():
         
         results = query_knowledge_graph(ORG_ID, query)
         return jsonify({"ok": True, "results": results})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/analyze-decision")
+def analyze_decision():
+    """Comprehensive decision analysis with historical context."""
+    try:
+        decision_data = request.json
+        if not decision_data:
+            return jsonify({"ok": False, "error": "No decision data provided"})
+        
+        analysis = analyze_decision_comprehensive(ORG_ID, decision_data)
+        return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/predict-decision")
+def predict_decision():
+    """Predict decision outcome with comprehensive reasoning."""
+    try:
+        proposal_data = request.json
+        if not proposal_data:
+            return jsonify({"ok": False, "error": "No proposal data provided"})
+        
+        prediction = predict_decision_outcome(ORG_ID, proposal_data)
+        return jsonify({"ok": True, "prediction": prediction})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/decision-context/<decision_id>")
+def get_complete_decision_context(decision_id):
+    """Get complete institutional context for a decision."""
+    try:
+        context = get_decision_context(ORG_ID, decision_id)
+        return jsonify({"ok": True, "context": context})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/governance-trends")
+def get_governance_trends():
+    """Analyze governance trends over time."""
+    try:
+        months = int(request.args.get('months', 24))
+        trends = analyze_governance_trends(ORG_ID, months)
+        return jsonify({"ok": True, "trends": trends})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/board-insights")
+def get_board_insights():
+    """Generate comprehensive board performance insights."""
+    try:
+        insights = generate_board_insights(ORG_ID)
+        return jsonify({"ok": True, "insights": insights})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
