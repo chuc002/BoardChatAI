@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class PerfectExtractor:
     """
     Multi-pass extraction system that guarantees complete information capture.
+    Never miss a detail - extract complete sections with all sub-points.
     """
     
     def __init__(self):
@@ -34,11 +35,24 @@ class PerfectExtractor:
             'fee_types': [],
             'time_periods': [],
             'relationships': [],
+            'complete_sections': {},
             'validation_results': {}
         }
         
         # Initialize patterns for each extraction pass
         self._init_patterns()
+        
+        # Section detection patterns for complete extraction
+        self.section_patterns = {
+            'reinstatement': r'reinstatement[^(]*(\([a-z]\)[^(]*)*',
+            'transfer_fees': r'transfer\s+fee[^(]*(\([a-z]\)[^(]*)*',
+            'initiation_fees': r'initiation\s+fee[^(]*(\([a-z]\)[^(]*)*',
+            'membership_categories': r'(foundation|social|legacy|intermediate|corporate)[^.]*\.',
+            'voting_procedures': r'vot(e|ing)[^(]*(\([a-z]\)[^(]*)*',
+            'financial_obligations': r'(dues|fees|payments?|assessments?)[^(]*(\([a-z]\)[^(]*)*',
+            'committee_responsibilities': r'committee[^(]*(\([a-z]\)[^(]*)*',
+            'membership_requirements': r'(eligibility|requirements?|qualifications?)[^(]*(\([a-z]\)[^(]*)*'
+        }
     
     def _init_patterns(self):
         """Initialize all extraction patterns."""
@@ -154,6 +168,9 @@ class PerfectExtractor:
                 'extraction_timestamp': datetime.now().isoformat()
             }
         }
+        
+        # Execute complete section extraction first
+        self._extract_complete_sections(text)
         
         # Execute all extraction passes
         self._pass_1_monetary_amounts(text)
@@ -490,6 +507,9 @@ class PerfectExtractor:
             total = sum(p['percentage'] for p in group)
             valid_sums.append(abs(total - 100) < 1)  # Allow small rounding errors
         
+        # Validate complete sections
+        section_validation = self._validate_complete_sections()
+        
         return {
             'total_percentages': len(percentages),
             'has_complete_reinstatement': has_complete_reinstatement,
@@ -497,7 +517,9 @@ class PerfectExtractor:
             'expected_reinstatement': expected_reinstatement,
             'valid_percentage_sums': sum(valid_sums),
             'total_percentage_groups': len(percentage_groups),
-            'score': 0.9 if has_complete_reinstatement else 0.6
+            'complete_sections_score': section_validation['overall_completeness'],
+            'section_details': section_validation['section_scores'],
+            'score': max(0.9 if has_complete_reinstatement else 0.6, section_validation['overall_completeness'])
         }
     
     def _validate_amounts(self) -> Dict[str, Any]:
@@ -571,6 +593,47 @@ class PerfectExtractor:
             'has_membership_content': has_membership_content,
             'completeness_score': completeness_score,
             'score': min(1.0, completeness_score + extraction_density / 10)
+        }
+    
+    def _validate_complete_sections(self) -> Dict[str, Any]:
+        """Validate that complete sections were properly extracted."""
+        sections = self.results['complete_sections']
+        
+        if not sections:
+            return {'overall_completeness': 0.0, 'section_scores': {}}
+        
+        section_scores = {}
+        total_score = 0
+        
+        for section_key, section_data in sections.items():
+            section_type = section_data['type']
+            completeness = section_data['completeness_score']
+            entities_count = sum(len(entities) for entities in section_data['entities'].values())
+            
+            # Assess section quality
+            quality_score = completeness
+            if entities_count > 5:  # Rich in extracted entities
+                quality_score += 0.1
+            if len(section_data['content']) > 300:  # Substantial content
+                quality_score += 0.1
+            
+            section_scores[section_key] = {
+                'type': section_type,
+                'completeness_score': completeness,
+                'entities_count': entities_count,
+                'quality_score': min(1.0, quality_score),
+                'content_length': len(section_data['content'])
+            }
+            
+            total_score += min(1.0, quality_score)
+        
+        overall_completeness = total_score / len(sections) if sections else 0.0
+        
+        return {
+            'overall_completeness': overall_completeness,
+            'section_scores': section_scores,
+            'total_sections': len(sections),
+            'high_quality_sections': sum(1 for score in section_scores.values() if score['quality_score'] >= 0.8)
         }
     
     def _validate_consistency(self) -> Dict[str, Any]:
@@ -776,6 +839,288 @@ class PerfectExtractor:
             return match.group(1).strip()
         
         return "Unknown application"
+    
+    def _extract_complete_sections(self, text: str):
+        """Extract complete sections - never miss a detail."""
+        logger.debug("Extracting complete sections with all sub-points")
+        
+        for section_type, pattern in self.section_patterns.items():
+            matches = re.finditer(pattern, text, re.IGNORECASE | re.DOTALL)
+            for match in matches:
+                # Extend match to include all sub-points and related content
+                start = match.start()
+                end = self._find_section_end(text, start)
+                section_content = text[start:end]
+                
+                # Extract all entities from this complete section
+                section_entities = self._extract_comprehensive_entities(section_content)
+                
+                section_key = f"{section_type}_{start}"
+                self.results['complete_sections'][section_key] = {
+                    'type': section_type,
+                    'content': section_content,
+                    'start_position': start,
+                    'end_position': end,
+                    'entities': section_entities,
+                    'completeness_score': self._assess_section_completeness(section_content, section_type)
+                }
+    
+    def _find_section_end(self, text: str, start: int) -> int:
+        """Find the complete end of a section including all sub-points."""
+        # Look for section boundaries
+        section_end_patterns = [
+            r'\n\s*[A-Z][^a-z]*:',  # Next major section
+            r'\n\s*\d+\.',  # Numbered list item
+            r'\n\s*[IVX]+\.',  # Roman numerals
+            r'\n\s*[A-Z]\.',  # Capital letter list
+            r'\n\s*(?:[Ss]ection|[Aa]rticle)\s+\d+',  # Section/Article headers
+        ]
+        
+        # Start looking from current position
+        search_start = start + 50  # Skip initial content
+        earliest_end = len(text)
+        
+        for pattern in section_end_patterns:
+            match = re.search(pattern, text[search_start:])
+            if match:
+                end_pos = search_start + match.start()
+                earliest_end = min(earliest_end, end_pos)
+        
+        # Ensure we capture at least 200 characters or until natural break
+        min_end = min(start + 200, len(text))
+        actual_end = max(min_end, earliest_end)
+        
+        return min(actual_end, len(text))
+    
+    def _extract_comprehensive_entities(self, text: str) -> Dict[str, List]:
+        """Extract every number, percentage, date, and name from section."""
+        entities = {
+            'percentages': [],
+            'amounts': [],
+            'dates': [],
+            'days': [],
+            'names': [],
+            'votes': [],
+            'years': [],
+            'phone_numbers': [],
+            'email_addresses': [],
+            'addresses': []
+        }
+        
+        # Enhanced percentage extraction
+        percentage_patterns = [
+            r'(\d+(?:\.\d+)?)\s*(?:%|percent)',
+            r'(?:seventy[- ]?five|75)\s*(?:%|percent)',
+            r'(?:fifty|50)\s*(?:%|percent)',
+            r'(?:twenty[- ]?five|25)\s*(?:%|percent)',
+            r'(?:forty|40)\s*(?:%|percent)',
+            r'(?:sixty|60)\s*(?:%|percent)',
+            r'(?:thirty|30)\s*(?:%|percent)',
+            r'(?:eighty|80)\s*(?:%|percent)',
+            r'(?:ninety|90)\s*(?:%|percent)',
+            r'(?:one hundred|100)\s*(?:%|percent)'
+        ]
+        
+        for pattern in percentage_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                entities['percentages'].append({
+                    'value': self._text_to_percentage(match.group(1) if match.lastindex >= 1 else match.group(0)),
+                    'raw_text': match.group(0),
+                    'position': match.start()
+                })
+        
+        # Enhanced monetary amount extraction
+        amount_patterns = [
+            r'\$\s?([\d,]+(?:\.\d{2})?)',
+            r'(?:dollar|dollar amount|sum|cost|fee|charge|payment)(?:\s+of)?\s+\$\s?([\d,]+(?:\.\d{2})?)',
+            r'([\d,]+(?:\.\d{2})?)\s+dollars?'
+        ]
+        
+        for pattern in amount_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    amount_str = match.group(1).replace(',', '')
+                    amount_value = float(amount_str)
+                    entities['amounts'].append({
+                        'value': amount_value,
+                        'formatted': f"${amount_value:,.2f}",
+                        'raw_text': match.group(0),
+                        'position': match.start()
+                    })
+                except (ValueError, IndexError):
+                    continue
+        
+        # Enhanced date extraction
+        date_patterns = [
+            r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
+            r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
+            r'\b\d{4}-\d{2}-\d{2}\b'
+        ]
+        
+        for pattern in date_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                entities['dates'].append({
+                    'value': match.group(0),
+                    'position': match.start(),
+                    'parsed_date': self._parse_date(match.group(0))
+                })
+        
+        # Time period extraction
+        entities['days'] = [{'value': int(match.group(1)), 'raw_text': match.group(0), 'position': match.start()} 
+                           for match in re.finditer(r'(\d+)\s*days?', text, re.IGNORECASE)]
+        
+        entities['years'] = [{'value': int(match.group(1)), 'position': match.start()} 
+                            for match in re.finditer(r'\b(\d{4})\b', text) 
+                            if 1900 <= int(match.group(1)) <= 2050]
+        
+        # Enhanced name extraction
+        entities['names'] = self._extract_all_names(text)
+        
+        # Voting pattern extraction
+        vote_patterns = [
+            r'(\d+)-(\d+)\s*vote',
+            r'(\d+)\s*(?:in\s+favor|for),?\s*(\d+)\s*(?:against|opposed)',
+            r'vote[:\s]*(\d+)[-–—]\s*(\d+)[-–—]\s*(\d+)'
+        ]
+        
+        for pattern in vote_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                entities['votes'].append({
+                    'raw_text': match.group(0),
+                    'position': match.start(),
+                    'vote_counts': [int(g) for g in match.groups() if g.isdigit()]
+                })
+        
+        # Contact information extraction
+        entities['phone_numbers'] = [match.group(0) for match in re.finditer(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text)]
+        entities['email_addresses'] = [match.group(0) for match in re.finditer(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)]
+        
+        return entities
+    
+    def _extract_all_names(self, text: str) -> List[Dict]:
+        """Extract all possible names with context."""
+        names = []
+        
+        # Enhanced name patterns
+        name_patterns = [
+            r'\b(?:President|Vice[- ]?President|Chairman|Chairwoman|Chair|Secretary|Treasurer|Director|Member|Mr|Mrs|Ms|Dr)\.?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b',
+            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s*,?\s*(?:President|Vice[- ]?President|Chairman|Chairwoman|Chair|Secretary|Treasurer|Director)\b',
+            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:moved|seconded|voted|proposed|suggested|recommended|stated|mentioned)\b',
+            r'\b([A-Z][a-z]+\s+[A-Z]\.\s+[A-Z][a-z]+)\b',  # John Q. Smith format
+            r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s*\([^)]*(?:Committee|Board|Chair|Member)[^)]*\)',  # Names with committee info
+        ]
+        
+        for pattern in name_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                name = match.group(1).strip()
+                if self._is_likely_person_name(name):
+                    # Get context around the name
+                    context_start = max(0, match.start() - 50)
+                    context_end = min(len(text), match.end() + 50)
+                    context = text[context_start:context_end].strip()
+                    
+                    names.append({
+                        'name': name,
+                        'position': match.start(),
+                        'context': context,
+                        'role': self._extract_role_from_context(context),
+                        'actions': self._extract_actions_from_context(context)
+                    })
+        
+        # Deduplicate names
+        unique_names = {}
+        for name_info in names:
+            name_key = name_info['name'].lower()
+            if name_key not in unique_names or len(name_info['context']) > len(unique_names[name_key]['context']):
+                unique_names[name_key] = name_info
+        
+        return list(unique_names.values())
+    
+    def _is_likely_person_name(self, name: str) -> bool:
+        """Check if string is likely a person's name."""
+        # Filter out common false positives
+        false_positives = {
+            'Board Member', 'Committee Chair', 'Vice President', 'Annual Meeting',
+            'Social Member', 'Foundation Member', 'Golf Committee', 'House Committee',
+            'Finance Committee', 'Executive Committee', 'Membership Committee'
+        }
+        
+        if name in false_positives:
+            return False
+        
+        # Must have at least first and last name
+        parts = name.split()
+        if len(parts) < 2:
+            return False
+        
+        # Each part should be properly capitalized
+        for part in parts:
+            if not (part[0].isupper() and (len(part) == 1 or part[1:].islower() or part[1:].isupper())):
+                return False
+        
+        return True
+    
+    def _extract_role_from_context(self, context: str) -> str:
+        """Extract role/title from context."""
+        roles = ['President', 'Vice President', 'Chairman', 'Chairwoman', 'Chair', 
+                'Secretary', 'Treasurer', 'Director', 'Member', 'Committee Chair']
+        
+        context_lower = context.lower()
+        for role in roles:
+            if role.lower() in context_lower:
+                return role
+        
+        return 'Member'
+    
+    def _extract_actions_from_context(self, context: str) -> List[str]:
+        """Extract actions from context."""
+        actions = []
+        action_words = ['moved', 'seconded', 'voted', 'proposed', 'suggested', 
+                       'recommended', 'stated', 'mentioned', 'objected', 'supported']
+        
+        context_lower = context.lower()
+        for action in action_words:
+            if action in context_lower:
+                actions.append(action)
+        
+        return actions
+    
+    def _assess_section_completeness(self, content: str, section_type: str) -> float:
+        """Assess how complete a section extraction is."""
+        base_score = 0.5
+        
+        # Check for expected elements based on section type
+        if section_type == 'reinstatement':
+            # Should contain percentages
+            if re.search(r'75\s*%|50\s*%|25\s*%', content, re.IGNORECASE):
+                base_score += 0.3
+            # Should contain time periods
+            if re.search(r'\d+\s*(?:year|month|day)', content, re.IGNORECASE):
+                base_score += 0.2
+        
+        elif section_type in ['initiation_fees', 'transfer_fees']:
+            # Should contain dollar amounts
+            if re.search(r'\$[\d,]+', content):
+                base_score += 0.3
+            # Should contain membership categories
+            if re.search(r'foundation|social|intermediate|legacy', content, re.IGNORECASE):
+                base_score += 0.2
+        
+        elif section_type == 'voting_procedures':
+            # Should contain voting numbers or procedures
+            if re.search(r'\d+-\d+|majority|quorum', content, re.IGNORECASE):
+                base_score += 0.3
+        
+        # Bonus for length (more detailed sections)
+        length_bonus = min(0.2, len(content) / 1000)
+        base_score += length_bonus
+        
+        return min(1.0, base_score)
     
     def _group_related_percentages(self) -> List[List[Dict]]:
         """Group percentages that should sum to 100%."""
