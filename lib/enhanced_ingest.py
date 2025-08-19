@@ -16,6 +16,7 @@ from lib.supa import supa
 from openai import OpenAI
 import tiktoken
 import os
+from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 
 # Configuration
 SECTION_PATTERN = r'\([a-z]\)\s+([^–]+)––([^(]+(?:\([a-z]\)|$))'
@@ -270,6 +271,14 @@ class SectionAwareChunker:
         else:
             completeness_score = self._calculate_completeness_score(text)
         
+        # Run perfect extraction on this chunk
+        perfect_results = extract_perfect_information(text, chunk_index=chunk_index)
+        extraction_quality = validate_extraction_quality(perfect_results)
+        
+        # Enhance completeness score based on perfect extraction results
+        if extraction_quality.get('is_high_quality', False):
+            completeness_score = min(100.0, completeness_score + 15.0)
+        
         # Determine page range
         text_start = text[:100].lower()
         page_index = None
@@ -287,7 +296,9 @@ class SectionAwareChunker:
             'percentage_list': self._find_percentages(text),
             'page_index': page_index,
             'word_count': len(text.split()),
-            'char_count': len(text)
+            'char_count': len(text),
+            'perfect_extraction': perfect_results,
+            'extraction_quality': extraction_quality
         }
 
 def extract_pdf_with_structure(file_content: bytes) -> Tuple[str, List[int], Dict[str, Any]]:
@@ -387,6 +398,10 @@ def enhanced_upsert_document(org_id: str, user_id: str, filename: str, file_cont
                 summary = generate_summary(chunk_data['content'])
                 
                 # Prepare chunk record
+                # Extract perfect information for institutional memory
+                perfect_data = chunk_data.get('perfect_extraction', {})
+                extraction_quality = chunk_data.get('extraction_quality', {})
+                
                 chunk_record = {
                     "document_id": doc_id,
                     "org_id": org_id,
@@ -400,7 +415,18 @@ def enhanced_upsert_document(org_id: str, user_id: str, filename: str, file_cont
                     "percentage_list": chunk_data.get('percentage_list', []),
                     "section_types": [s.get('section_type', 'general') for s in chunk_data.get('sections', [])],
                     "word_count": chunk_data['word_count'],
-                    "char_count": chunk_data['char_count']
+                    "char_count": chunk_data['char_count'],
+                    # Perfect extraction data
+                    "contains_decision": len(perfect_data.get('voting_records', [])) > 0,
+                    "decision_count": len(perfect_data.get('voting_records', [])),
+                    "entities_mentioned": {
+                        "monetary_amounts": [{'amount': a['amount'], 'type': a['type']} for a in perfect_data.get('monetary_amounts', [])],
+                        "members": [{'name': m['name'], 'role': m['role']} for m in perfect_data.get('members', [])],
+                        "committees": [c['name'] for c in perfect_data.get('committees', [])],
+                        "dates": [d['date_text'] for d in perfect_data.get('dates', [])]
+                    },
+                    "importance_score": min(1.0, extraction_quality.get('overall_score', 0.5)),
+                    "extraction_quality_score": extraction_quality.get('overall_score', 0.5)
                 }
                 
                 chunk_records.append(chunk_record)

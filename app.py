@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify
 from lib.ingest import upsert_document
 from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement_coverage
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
+from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -213,6 +214,60 @@ def get_organizational_insights():
         query = request.args.get('q', None)
         insights = get_institutional_insights(ORG_ID, query)
         return jsonify({"ok": True, "insights": insights})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/extract/<doc_id>")
+def perfect_extract_document(doc_id):
+    """Run perfect extraction on a specific document."""
+    try:
+        # Get document chunks
+        chunks = supa.table('doc_chunks').select('id,content,chunk_index').eq('document_id', doc_id).execute()
+        
+        if not chunks.data:
+            return jsonify({"ok": False, "error": "No chunks found for document"})
+        
+        all_results = []
+        total_extractions = {
+            'monetary_amounts': 0,
+            'percentages': 0,
+            'dates': 0,
+            'members': 0,
+            'voting_records': 0
+        }
+        
+        for chunk in chunks.data:
+            # Run perfect extraction
+            results = extract_perfect_information(
+                chunk['content'], 
+                document_id=doc_id,
+                chunk_index=chunk['chunk_index']
+            )
+            
+            # Validate quality
+            quality = validate_extraction_quality(results)
+            
+            all_results.append({
+                'chunk_id': chunk['id'],
+                'chunk_index': chunk['chunk_index'],
+                'extraction_results': results,
+                'quality_report': quality
+            })
+            
+            # Aggregate totals
+            for key in total_extractions:
+                total_extractions[key] += len(results.get(key, []))
+        
+        return jsonify({
+            "ok": True, 
+            "results": all_results,
+            "summary": {
+                "total_chunks": len(chunks.data),
+                "total_extractions": total_extractions,
+                "overall_quality": sum(r['quality_report'].get('overall_score', 0) for r in all_results) / len(all_results)
+            }
+        })
+        
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
