@@ -15,6 +15,9 @@ from lib.memory_synthesis import (recall_topic_history, answer_with_veteran_wisd
 from lib.perfect_rag import retrieve_perfect_context, generate_perfect_rag_response
 from lib.board_continuity_brain import (perfect_recall_query, process_document_with_perfect_capture,
                                        comprehensive_topic_analysis, validate_system_integrity)
+from lib.perfect_memory import (record_institutional_interaction, record_complete_institutional_decision,
+                              get_institutional_memory_search, get_institutional_intelligence_report,
+                              get_perfect_memory_metrics)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -528,6 +531,67 @@ def system_integrity():
     try:
         integrity_report = validate_system_integrity(ORG_ID)
         return jsonify({"ok": True, "integrity": integrity_report})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/record-interaction")
+def record_interaction():
+    """Record complete institutional interaction."""
+    try:
+        interaction_data = request.json
+        if not interaction_data:
+            return jsonify({"ok": False, "error": "No interaction data provided"})
+        
+        record_id = record_institutional_interaction(ORG_ID, interaction_data)
+        return jsonify({"ok": True, "record_id": record_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/record-decision")
+def record_decision():
+    """Record complete institutional decision."""
+    try:
+        decision_data = request.json
+        if not decision_data:
+            return jsonify({"ok": False, "error": "No decision data provided"})
+        
+        decision_id = record_complete_institutional_decision(ORG_ID, decision_data)
+        return jsonify({"ok": True, "decision_id": decision_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/memory-search")
+def memory_search():
+    """Search institutional memory."""
+    try:
+        search_data = request.json
+        query = search_data.get('query', '') if search_data else ''
+        scope = search_data.get('scope') if search_data else None
+        
+        if not query:
+            return jsonify({"ok": False, "error": "No search query provided"})
+        
+        results = get_institutional_memory_search(ORG_ID, query, scope)
+        return jsonify({"ok": True, "results": results})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/intelligence-report")
+def intelligence_report():
+    """Generate institutional intelligence report."""
+    try:
+        report_type = request.args.get('type', 'comprehensive')
+        report = get_institutional_intelligence_report(ORG_ID, report_type)
+        return jsonify({"ok": True, "report": report})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/memory-metrics")
+def memory_metrics():
+    """Get perfect memory system metrics."""
+    try:
+        metrics = get_perfect_memory_metrics(ORG_ID)
+        return jsonify({"ok": True, "metrics": metrics})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
