@@ -1,0 +1,199 @@
+# Create new file: lib/outcome_predictor.py
+
+from typing import Dict, List, Any
+import numpy as np
+from datetime import datetime, timedelta
+from lib.pattern_engine import PatternRecognitionEngine
+from lib.supabase_client import supa
+
+class DecisionOutcomePredictor:
+    def __init__(self):
+        self.pattern_engine = PatternRecognitionEngine()
+        self.prediction_models = {
+            'approval_likelihood': self._build_approval_model,
+            'implementation_success': self._build_implementation_model,
+            'cost_accuracy': self._build_cost_model,
+            'timeline_accuracy': self._build_timeline_model,
+            'member_satisfaction': self._build_satisfaction_model
+        }
+    
+    def predict_complete_outcome(self, proposed_decision: Dict[str, Any]) -> Dict[str, Any]:
+        """Provide comprehensive outcome prediction for a proposed decision"""
+        
+        # Get historical context
+        similar_decisions = self.pattern_engine._find_similar_decisions({
+            'amount': proposed_decision.get('amount'),
+            'type': proposed_decision.get('decision_type'),
+            'committee': proposed_decision.get('committee'),
+            'timing': proposed_decision.get('proposed_date')
+        })
+        
+        # Run all prediction models
+        predictions = {}
+        for model_name, model_func in self.prediction_models.items():
+            predictions[model_name] = model_func(proposed_decision, similar_decisions)
+        
+        # Generate comprehensive assessment
+        assessment = {
+            'overall_recommendation': self._generate_overall_recommendation(predictions),
+            'approval_prediction': predictions['approval_likelihood'],
+            'implementation_forecast': predictions['implementation_success'],
+            'financial_forecast': predictions['cost_accuracy'],
+            'timeline_forecast': predictions['timeline_accuracy'],
+            'satisfaction_forecast': predictions['member_satisfaction'],
+            'risk_assessment': self._assess_risks(proposed_decision, similar_decisions),
+            'optimization_suggestions': self._suggest_optimizations(proposed_decision, predictions),
+            'precedent_analysis': self._analyze_precedents(similar_decisions),
+            'decision_tree': self._build_decision_tree(proposed_decision, predictions)
+        }
+        
+        return assessment
+    
+    def _build_approval_model(self, proposed_decision: Dict, similar_decisions: List[Dict]) -> Dict[str, Any]:
+        """Predict likelihood of approval"""
+        
+        if not similar_decisions:
+            return {'probability': 0.5, 'confidence': 'low', 'factors': []}
+        
+        # Calculate base approval rate for similar decisions
+        approved_count = sum(1 for d in similar_decisions if d.get('outcome') == 'approved')
+        base_rate = approved_count / len(similar_decisions)
+        
+        # Adjust for specific factors
+        adjustments = []
+        adjusted_rate = base_rate
+        
+        # Amount factor
+        amount = proposed_decision.get('amount', 0)
+        avg_amount = np.mean([d.get('amount', 0) for d in similar_decisions if d.get('amount')])
+        if amount > avg_amount * 1.5:
+            adjusted_rate *= 0.8
+            adjustments.append(f"Amount 50% above average reduces approval by 20%")
+        elif amount < avg_amount * 0.5:
+            adjusted_rate *= 1.1
+            adjustments.append(f"Amount 50% below average increases approval by 10%")
+        
+        # Timing factor
+        timing_factor = self._calculate_timing_factor(proposed_decision, similar_decisions)
+        adjusted_rate *= timing_factor['multiplier']
+        adjustments.append(timing_factor['explanation'])
+        
+        # Committee factor
+        committee_factor = self._calculate_committee_factor(proposed_decision, similar_decisions)
+        adjusted_rate *= committee_factor['multiplier']
+        adjustments.append(committee_factor['explanation'])
+        
+        # Sponsor factor
+        sponsor_factor = self._calculate_sponsor_factor(proposed_decision, similar_decisions)
+        adjusted_rate *= sponsor_factor['multiplier']
+        adjustments.append(sponsor_factor['explanation'])
+        
+        # Cap at reasonable bounds
+        adjusted_rate = max(0.05, min(0.95, adjusted_rate))
+        
+        return {
+            'probability': round(adjusted_rate, 3),
+            'confidence': 'high' if len(similar_decisions) >= 10 else 'medium' if len(similar_decisions) >= 5 else 'low',
+            'base_rate': round(base_rate, 3),
+            'adjustments': adjustments,
+            'similar_decisions_count': len(similar_decisions),
+            'key_factors': self._identify_key_approval_factors(similar_decisions)
+        }
+    
+    def _build_implementation_model(self, proposed_decision: Dict, similar_decisions: List[Dict]) -> Dict[str, Any]:
+        """Predict implementation success"""
+        
+        implemented_decisions = [d for d in similar_decisions if d.get('outcome') == 'approved']
+        
+        if not implemented_decisions:
+            return {'success_probability': 0.5, 'confidence': 'low'}
+        
+        # Analyze implementation outcomes
+        successful_implementations = []
+        for decision in implemented_decisions:
+            # Check for success indicators
+            if decision.get('actual_cost') and decision.get('amount'):
+                cost_variance = abs(decision['actual_cost'] - decision['amount']) / decision['amount']
+                if cost_variance < 0.2:  # Within 20% of budget
+                    successful_implementations.append(decision)
+        
+        success_rate = len(successful_implementations) / len(implemented_decisions)
+        
+        # Identify common success factors
+        success_factors = self._identify_implementation_success_factors(successful_implementations)
+        risk_factors = self._identify_implementation_risk_factors(implemented_decisions)
+        
+        return {
+            'success_probability': round(success_rate, 3),
+            'confidence': 'high' if len(implemented_decisions) >= 10 else 'medium',
+            'success_factors': success_factors,
+            'risk_factors': risk_factors,
+            'typical_timeline': self._calculate_typical_implementation_timeline(implemented_decisions),
+            'cost_variance_forecast': self._forecast_cost_variance(implemented_decisions, proposed_decision)
+        }
+    
+    def _assess_risks(self, proposed_decision: Dict, similar_decisions: List[Dict]) -> Dict[str, Any]:
+        """Comprehensive risk assessment"""
+        
+        risks = {
+            'financial_risks': [],
+            'operational_risks': [],
+            'political_risks': [],
+            'timeline_risks': [],
+            'reputation_risks': []
+        }
+        
+        # Financial risks
+        amount = proposed_decision.get('amount', 0)
+        if amount > 50000:
+            risks['financial_risks'].append({
+                'risk': 'Major financial commitment',
+                'probability': 'high',
+                'impact': 'high',
+                'mitigation': 'Require detailed financial analysis and multi-meeting approval'
+            })
+        
+        # Analyze historical failures
+        failed_decisions = [d for d in similar_decisions if d.get('outcome') == 'rejected' or d.get('implementation_issues')]
+        
+        for failed_decision in failed_decisions:
+            failure_reasons = failed_decision.get('failure_reasons', [])
+            for reason in failure_reasons:
+                category = self._categorize_risk(reason)
+                risks[category].append({
+                    'risk': reason,
+                    'historical_precedent': f"Failed in {failed_decision.get('meeting_date', 'unknown date')}",
+                    'probability': 'medium',
+                    'impact': 'medium'
+                })
+        
+        return risks
+    
+    def _generate_overall_recommendation(self, predictions: Dict) -> Dict[str, Any]:
+        """Generate overall recommendation based on all predictions"""
+        
+        approval_prob = predictions['approval_likelihood']['probability']
+        implementation_prob = predictions['implementation_success']['success_probability']
+        
+        # Calculate overall success probability
+        overall_success = approval_prob * implementation_prob
+        
+        if overall_success >= 0.7:
+            recommendation = 'APPROVE'
+            reasoning = 'High probability of approval and successful implementation'
+        elif overall_success >= 0.5:
+            recommendation = 'APPROVE_WITH_CONDITIONS'
+            reasoning = 'Moderate success probability - recommend modifications to increase chances'
+        elif overall_success >= 0.3:
+            recommendation = 'DEFER'
+            reasoning = 'Low success probability - recommend significant changes before proceeding'
+        else:
+            recommendation = 'REJECT'
+            reasoning = 'Very low success probability - fundamental issues need to be addressed'
+        
+        return {
+            'recommendation': recommendation,
+            'reasoning': reasoning,
+            'overall_success_probability': round(overall_success, 3),
+            'confidence_level': self._calculate_confidence_level(predictions)
+        }

@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 import logging
 import statistics
+import numpy as np
 from collections import defaultdict
 
 from lib.supa import supa
@@ -312,43 +313,46 @@ class PatternRecognitionEngine:
         return f"{decision_type}_{cost_category}_{complexity_category}_{urgency}"
     
     def _analyze_decision_group(self, pattern_key: str, decisions: List[Dict]) -> Optional[DecisionPattern]:
-        """Analyze a group of similar decisions to identify patterns."""
+        """Analyze a group of similar decisions to identify patterns with enhanced analysis."""
         if len(decisions) < 2:
             return None
         
         try:
+            # Enhanced approval analysis using your specification methods
+            approval_analysis = self._analyze_approval_patterns_enhanced(decisions)
+            
             # Calculate success rate (decisions marked as would_repeat)
             successful_decisions = [d for d in decisions if d.get('would_repeat') == True]
             success_rate = len(successful_decisions) / len(decisions)
             
-            # Calculate approval rate (decisions that were approved/implemented)
-            approved_decisions = [d for d in decisions if d.get('vote_details', {}).get('approved') == True]
+            # Calculate approval rate with enhanced logic
+            approved_decisions = [d for d in decisions if self._is_approved(d)]
             approval_rate = len(approved_decisions) / len(decisions)
             
-            # Calculate average timeline
-            timelines = []
-            for decision in decisions:
-                if decision.get('proposed_date') and decision.get('vote_date'):
-                    proposed = datetime.fromisoformat(decision['proposed_date'])
-                    voted = datetime.fromisoformat(decision['vote_date'])
-                    timeline = (voted - proposed).days
-                    timelines.append(timeline)
+            # Calculate average timeline with multiple methods
+            avg_timeline = self._calculate_average_timeline(decisions)
             
-            avg_timeline = int(statistics.mean(timelines)) if timelines else 30
+            # Enhanced cost analysis
+            cost_analysis = self._analyze_cost_patterns(decisions)
+            avg_cost = cost_analysis.get('average_cost')
             
-            # Calculate average cost
-            costs = [d.get('budget_actual', d.get('budget_projected', 0)) or 0 for d in decisions]
-            avg_cost = statistics.mean(costs) if costs else None
+            # Extract enhanced risk and success factors
+            risk_factors = self._extract_enhanced_factors(decisions, 'risk_assessment')
+            success_factors = self._extract_enhanced_factors(decisions, 'success_metrics')
             
-            # Extract common risk and success factors
-            risk_factors = self._extract_common_factors(decisions, 'risk_assessment')
-            success_factors = self._extract_common_factors(decisions, 'success_metrics')
+            # Add governance insights
+            governance_insights = self._calculate_governance_insights(decisions)
             
-            # Create pattern
+            # Create enhanced pattern
             pattern = DecisionPattern(
                 pattern_name=f"Pattern: {pattern_key.replace('_', ' ').title()}",
                 pattern_type=pattern_key.split('_')[0],
-                trigger_conditions={'pattern_key': pattern_key},
+                trigger_conditions={
+                    'pattern_key': pattern_key,
+                    'approval_thresholds': approval_analysis.get('thresholds', {}),
+                    'seasonal_effects': approval_analysis.get('seasonal_patterns', {}),
+                    'sponsor_influence': approval_analysis.get('sponsor_patterns', {})
+                },
                 success_rate=success_rate,
                 approval_rate=approval_rate,
                 typical_timeline_days=avg_timeline,
@@ -356,7 +360,7 @@ class PatternRecognitionEngine:
                 risk_factors=risk_factors,
                 success_factors=success_factors,
                 examples=[d.get('id') for d in decisions],
-                confidence_score=min(1.0, len(decisions) / 10)  # Higher confidence with more examples
+                confidence_score=self._calculate_enhanced_confidence(decisions, approval_analysis)
             )
             
             return pattern
@@ -903,6 +907,357 @@ class PatternRecognitionEngine:
             findings.append(f"Average voting consistency: {avg_consistency:.1%}")
         
         return findings
+    
+    # Enhanced analysis methods based on your specification
+    
+    def _analyze_approval_patterns_enhanced(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Enhanced approval pattern analysis with detailed categorization."""
+        approval_analysis = {
+            'by_amount': defaultdict(list),
+            'by_type': defaultdict(list),
+            'by_committee': defaultdict(list),
+            'by_season': defaultdict(list),
+            'by_sponsor': defaultdict(list),
+            'thresholds': {},
+            'seasonal_patterns': {},
+            'sponsor_patterns': {}
+        }
+        
+        for decision in decisions:
+            outcome = self._get_decision_outcome(decision)
+            amount = decision.get('budget_projected', 0) or decision.get('budget_actual', 0) or 0
+            decision_type = decision.get('decision_type', 'general')
+            committee = decision.get('committee', 'board')
+            date = decision.get('proposed_date')
+            sponsor = decision.get('proposed_by')
+            
+            # Amount-based patterns
+            amount_range = self._get_amount_range(amount)
+            approval_analysis['by_amount'][amount_range].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'type': decision_type,
+                'vote_margin': self._calculate_vote_margin(decision)
+            })
+            
+            # Type-based patterns
+            approval_analysis['by_type'][decision_type].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'timeline': self._calculate_decision_timeline(decision),
+                'amendments': len(decision.get('modifications', []))
+            })
+            
+            # Committee patterns
+            approval_analysis['by_committee'][committee].append({
+                'approved': outcome == 'approved',
+                'amount': amount,
+                'type': decision_type,
+                'preparation_time': self._calculate_prep_time(decision)
+            })
+            
+            # Seasonal patterns
+            if date:
+                season = self._get_season(date)
+                approval_analysis['by_season'][season].append({
+                    'approved': outcome == 'approved',
+                    'type': decision_type,
+                    'amount': amount
+                })
+                
+            # Sponsor patterns
+            if sponsor:
+                approval_analysis['by_sponsor'][sponsor].append({
+                    'approved': outcome == 'approved',
+                    'amount': amount,
+                    'type': decision_type
+                })
+        
+        # Calculate success rates and identify patterns
+        for category, data in approval_analysis.items():
+            if category in ['thresholds', 'seasonal_patterns', 'sponsor_patterns']:
+                continue
+                
+            for subcategory, items in data.items():
+                if items:
+                    total = len(items)
+                    approved = sum(1 for item in items if item['approved'])
+                    approval_rate = approved / total
+                    
+                    # Store calculated patterns
+                    if category == 'by_amount':
+                        approval_analysis['thresholds'][subcategory] = approval_rate
+                    elif category == 'by_season':
+                        approval_analysis['seasonal_patterns'][subcategory] = approval_rate
+                    elif category == 'by_sponsor':
+                        approval_analysis['sponsor_patterns'][subcategory] = approval_rate
+        
+        return approval_analysis
+    
+    def _get_decision_outcome(self, decision: Dict) -> str:
+        """Extract decision outcome with multiple fallback methods."""
+        # Check multiple fields for outcome
+        if decision.get('would_repeat') == True:
+            return 'approved'
+        elif decision.get('would_repeat') == False:
+            return 'rejected'
+        
+        vote_details = decision.get('vote_details', {})
+        if isinstance(vote_details, dict):
+            if vote_details.get('approved') == True:
+                return 'approved'
+            elif vote_details.get('approved') == False:
+                return 'rejected'
+        
+        # Check implementation status
+        if decision.get('implementation_completion_date'):
+            return 'approved'
+        
+        return 'unknown'
+    
+    def _get_amount_range(self, amount: float) -> str:
+        """Categorize amounts into ranges."""
+        if amount < 1000:
+            return 'under_1k'
+        elif amount < 5000:
+            return '1k_5k'
+        elif amount < 25000:
+            return '5k_25k'
+        elif amount < 100000:
+            return '25k_100k'
+        else:
+            return 'over_100k'
+    
+    def _get_season(self, date_str: str) -> str:
+        """Get season from date string."""
+        try:
+            if isinstance(date_str, str):
+                date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            else:
+                date = date_str
+            
+            month = date.month
+            if month in [12, 1, 2]:
+                return 'winter'
+            elif month in [3, 4, 5]:
+                return 'spring'
+            elif month in [6, 7, 8]:
+                return 'summer'
+            else:
+                return 'fall'
+        except:
+            return 'unknown'
+    
+    def _calculate_vote_margin(self, decision: Dict) -> float:
+        """Calculate vote margin from decision data."""
+        vote_details = decision.get('vote_details', {})
+        
+        if isinstance(vote_details, dict):
+            vote_for = vote_details.get('for', 0)
+            vote_against = vote_details.get('against', 0)
+            total = vote_for + vote_against
+            
+            if total > 0:
+                return (vote_for - vote_against) / total
+        
+        # Try vote_margin field
+        vote_margin = decision.get('vote_margin')
+        if vote_margin is not None:
+            return vote_margin
+        
+        return 0.0
+    
+    def _calculate_decision_timeline(self, decision: Dict) -> int:
+        """Calculate timeline for a decision."""
+        try:
+            proposed_date = decision.get('proposed_date')
+            vote_date = decision.get('vote_date')
+            
+            if proposed_date and vote_date:
+                proposed = datetime.fromisoformat(proposed_date)
+                voted = datetime.fromisoformat(vote_date)
+                return (voted - proposed).days
+        except:
+            pass
+        
+        return 0
+    
+    def _calculate_prep_time(self, decision: Dict) -> int:
+        """Calculate preparation time for a decision."""
+        # This would need to be calculated based on when preparation started
+        # For now, return a default or calculate from available data
+        timeline = self._calculate_decision_timeline(decision)
+        return max(timeline - 7, 0)  # Assume 7 days for voting, rest is prep
+    
+    def _is_approved(self, decision: Dict) -> bool:
+        """Check if a decision was approved using multiple methods."""
+        return self._get_decision_outcome(decision) == 'approved'
+    
+    def _calculate_average_timeline(self, decisions: List[Dict]) -> int:
+        """Calculate average timeline across decisions."""
+        timelines = []
+        
+        for decision in decisions:
+            timeline = self._calculate_decision_timeline(decision)
+            if timeline > 0:
+                timelines.append(timeline)
+        
+        return int(statistics.mean(timelines)) if timelines else 30
+    
+    def _analyze_cost_patterns(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Analyze cost patterns in decisions."""
+        costs = []
+        actual_costs = []
+        variances = []
+        
+        for decision in decisions:
+            projected = decision.get('budget_projected', 0) or 0
+            actual = decision.get('budget_actual', 0) or 0
+            
+            if projected > 0:
+                costs.append(projected)
+                
+                if actual > 0:
+                    actual_costs.append(actual)
+                    variance = (actual - projected) / projected
+                    variances.append(variance)
+        
+        analysis = {
+            'average_cost': statistics.mean(costs) if costs else 0,
+            'median_cost': statistics.median(costs) if costs else 0,
+            'cost_variance': statistics.mean(variances) if variances else 0,
+            'cost_accuracy': 1 - abs(statistics.mean(variances)) if variances else 0.8
+        }
+        
+        return analysis
+    
+    def _extract_enhanced_factors(self, decisions: List[Dict], field: str) -> List[str]:
+        """Enhanced factor extraction with better analysis."""
+        all_factors = []
+        
+        for decision in decisions:
+            factors_data = decision.get(field, {})
+            
+            if isinstance(factors_data, dict):
+                # Extract keys and values
+                all_factors.extend(factors_data.keys())
+                for value in factors_data.values():
+                    if isinstance(value, str):
+                        all_factors.append(value)
+                    elif isinstance(value, list):
+                        all_factors.extend(value)
+            elif isinstance(factors_data, list):
+                all_factors.extend(factors_data)
+            elif isinstance(factors_data, str):
+                all_factors.append(factors_data)
+        
+        # Count frequency and return most common
+        factor_counts = defaultdict(int)
+        for factor in all_factors:
+            if factor and isinstance(factor, str):
+                factor_counts[factor] += 1
+        
+        # Return factors that appear in at least 30% of decisions
+        threshold = max(1, len(decisions) * 0.3)
+        common_factors = [factor for factor, count in factor_counts.items() if count >= threshold]
+        
+        return sorted(common_factors, key=lambda x: factor_counts[x], reverse=True)[:10]
+    
+    def _calculate_governance_insights(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Calculate governance insights for decision group."""
+        insights = {
+            'decision_velocity': len(decisions),
+            'average_complexity': statistics.mean([d.get('complexity_score', 0.5) for d in decisions]),
+            'consensus_building': self._analyze_consensus_patterns(decisions),
+            'implementation_success': self._analyze_implementation_success(decisions)
+        }
+        
+        return insights
+    
+    def _analyze_consensus_patterns(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Analyze consensus building patterns."""
+        unanimous_count = 0
+        total_with_votes = 0
+        
+        for decision in decisions:
+            if decision.get('unanimous'):
+                unanimous_count += 1
+                total_with_votes += 1
+            elif decision.get('vote_details'):
+                total_with_votes += 1
+        
+        consensus_rate = unanimous_count / total_with_votes if total_with_votes > 0 else 0
+        
+        return {
+            'unanimous_rate': consensus_rate,
+            'consensus_building_needed': 1 - consensus_rate,
+            'average_vote_margin': statistics.mean([
+                abs(self._calculate_vote_margin(d)) for d in decisions
+            ])
+        }
+    
+    def _analyze_implementation_success(self, decisions: List[Dict]) -> Dict[str, Any]:
+        """Analyze implementation success patterns."""
+        implemented = 0
+        total_approved = 0
+        
+        for decision in decisions:
+            if self._is_approved(decision):
+                total_approved += 1
+                if decision.get('implementation_completion_date'):
+                    implemented += 1
+        
+        implementation_rate = implemented / total_approved if total_approved > 0 else 0
+        
+        return {
+            'implementation_rate': implementation_rate,
+            'completion_success': implementation_rate,
+            'average_implementation_time': self._calculate_avg_implementation_time(decisions)
+        }
+    
+    def _calculate_avg_implementation_time(self, decisions: List[Dict]) -> float:
+        """Calculate average implementation time."""
+        implementation_times = []
+        
+        for decision in decisions:
+            start_date = decision.get('implementation_start_date')
+            end_date = decision.get('implementation_completion_date')
+            
+            if start_date and end_date:
+                try:
+                    start = datetime.fromisoformat(start_date)
+                    end = datetime.fromisoformat(end_date)
+                    implementation_times.append((end - start).days)
+                except:
+                    continue
+        
+        return statistics.mean(implementation_times) if implementation_times else 90
+    
+    def _calculate_enhanced_confidence(self, decisions: List[Dict], approval_analysis: Dict) -> float:
+        """Calculate enhanced confidence score."""
+        base_confidence = min(1.0, len(decisions) / 10)
+        
+        # Boost confidence based on data quality
+        quality_factors = []
+        
+        # Check for complete voting data
+        complete_votes = sum(1 for d in decisions if d.get('vote_details'))
+        vote_completeness = complete_votes / len(decisions)
+        quality_factors.append(vote_completeness)
+        
+        # Check for financial data completeness
+        complete_budgets = sum(1 for d in decisions if d.get('budget_projected') or d.get('budget_actual'))
+        budget_completeness = complete_budgets / len(decisions)
+        quality_factors.append(budget_completeness)
+        
+        # Check for outcome tracking
+        tracked_outcomes = sum(1 for d in decisions if d.get('would_repeat') is not None)
+        outcome_completeness = tracked_outcomes / len(decisions)
+        quality_factors.append(outcome_completeness)
+        
+        quality_score = statistics.mean(quality_factors)
+        
+        return min(1.0, base_confidence * (0.5 + 0.5 * quality_score))
 
 
 # API Functions

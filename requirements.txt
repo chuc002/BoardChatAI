@@ -31,3 +31,4 @@ requests
 supabase
 tiktoken
 boto3
+numpy
