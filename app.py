@@ -1,6 +1,7 @@
 import os, json
 from flask import Flask, render_template, request, jsonify
 from lib.ingest import upsert_document
+from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement_coverage
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -30,7 +31,13 @@ def upload():
     for f in files:
         if not f: continue
         b = f.read()
-        doc, n = upsert_document(ORG_ID, USER_ID, f.filename, b, f.mimetype or "application/pdf")
+        # Use enhanced ingestion for better section awareness
+        try:
+            doc, n = enhanced_upsert_document(ORG_ID, USER_ID, f.filename, b, f.mimetype or "application/pdf")
+            print(f"[UPLOAD] Enhanced ingestion: {n} chunks created")
+        except Exception as e:
+            print(f"[UPLOAD] Enhanced ingestion failed, falling back to basic: {e}")
+            doc, n = upsert_document(ORG_ID, USER_ID, f.filename, b, f.mimetype or "application/pdf")
         results.append({"document_id": doc["id"], "chunks": n, "title": f.filename})
     return jsonify({"ok": True, "results": results})
 
@@ -179,6 +186,15 @@ def job_detail(job_id):
     items = supa.table("ingest_items").select("id,filename,status,document_id,error_message,created_at,started_at,finished_at") \
             .eq("job_id", job_id).order("created_at").limit(500).execute().data or []
     return jsonify({"ok": True, "job": (job[0] if job else None), "items": items})
+
+@app.get("/validate/<doc_id>")
+def validate_document_processing(doc_id):
+    """Validate that document processing captured all critical information."""
+    try:
+        analysis = validate_reinstatement_coverage(doc_id)
+        return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")

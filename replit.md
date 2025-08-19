@@ -21,7 +21,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Modern gradient themes, professional color palette with purple-blue AI branding, smooth animations, conversation-focused design
 - **User Experience**: Conversational document exploration, intelligent suggestions, confidence indicators, seamless source citations, auto-focus chat input
 
-### Recent Performance Improvements (August 18, 2025)
+### Recent Performance Improvements (August 18-19, 2025)
 - **✅ ULTIMATE NOTEBOOKLM ENHANCEMENT**: Final optimization to achieve 90%+ comprehensive quality matching NotebookLM standards
 - **Enhanced Readability & Structure**: Implemented proper formatting with clear section headers, double line breaks, organized bullet points for easy scanning
 - **Open Notebook Integration**: Reviewed and incorporated advanced techniques from open-notebook repository including multi-modal content processing, granular context control, and professional citation systems
@@ -32,6 +32,9 @@ Preferred communication style: Simple, everyday language.
 - **Percentage-Rich Content Prioritization**: Specialized extraction prioritizing chunks containing specific percentages (70%, 75%, 50%, 25%, 40%) with up to 12,000 characters per chunk
 - **Professional Response Organization**: NotebookLM-style structured responses with Roman numerals (I-VII), proper spacing, and comprehensive cross-category synthesis
 - **Enhanced Prompting System**: Implemented exhaustive extraction instructions inspired by tldw_chatbook's research workflow approach and Open Notebook's multi-dimensional quality metrics
+- **🔥 SECTION-AWARE INGESTION SYSTEM**: Created lib/enhanced_ingest.py with intelligent chunking that preserves complete policy sections, prevents mid-sentence breaks of critical information (like reinstatement percentages), and uses regex pattern matching to identify and preserve complete sections
+- **Contextual Overlap Processing**: Replaced character-based overlap with contextual overlap that preserves complete meaning and context between chunks
+- **Percentage Sequence Validation**: Added validation to ensure no chunk ends with incomplete numbers or percentage references, specifically addressing reinstatement percentage capture issues
 
 ### Backend Architecture
 - **Framework**: Flask web application with modular route organization
@@ -56,11 +59,15 @@ Preferred communication style: Simple, everyday language.
 - **User Isolation**: All document and chat operations scoped to development organization
 
 ### Document Processing Pipeline
-- **PDF Extraction**: PyPDF2 for text extraction with page-level granularity
-- **Text Chunking**: Intelligent chunking with overlap preservation for context continuity
+- **PDF Extraction**: PyPDF2 for text extraction with page-level granularity and structure preservation
+- **🔥 Section-Aware Chunking**: Advanced regex-based section detection using pattern `\([a-z]\)\s+([^–]+)––([^(]+(?:\([a-z]\)|$))` to identify complete policy sections
+- **Percentage Sequence Preservation**: Intelligent detection and preservation of percentage sequences (75%, 50%, 25%) without mid-sentence breaks
+- **Contextual Overlap**: Smart overlap that preserves complete context rather than arbitrary character boundaries
+- **Completeness Scoring**: Each chunk receives a section_completeness_score (0-100) indicating how complete and well-structured the content is
+- **Validation System**: Chunks validated to ensure they don't end with incomplete numbers, percentages, or conjunction words
 - **Embedding Generation**: OpenAI text-embedding-3-small (1536-dim) for high-quality vector representations
 - **Chunk Summarization**: Pre-computed summaries using GPT-4o-mini for efficient retrieval
-- **Storage**: Chunked content stored with summaries and metadata linking to source documents
+- **Storage**: Enhanced chunk storage with section metadata, percentage lists, and completeness scores
 - **De-duplication**: SHA256-based file deduplication prevents re-processing identical documents
 
 ### AI Integration
