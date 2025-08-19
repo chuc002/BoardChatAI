@@ -12,6 +12,7 @@ from lib.governance_intelligence import (analyze_decision_comprehensive, predict
                                        get_decision_context, analyze_governance_trends, generate_board_insights)
 from lib.memory_synthesis import (recall_topic_history, answer_with_veteran_wisdom,
                                 get_institutional_wisdom, explain_club_culture)
+from lib.perfect_rag import retrieve_perfect_context, generate_perfect_rag_response
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -455,6 +456,37 @@ def get_club_culture():
     try:
         culture = explain_club_culture(ORG_ID)
         return jsonify({"ok": True, "culture": culture})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/perfect-rag")
+def perfect_rag_query():
+    """Perfect RAG with comprehensive context retrieval."""
+    try:
+        query_data = request.json
+        query = query_data.get('query', '') if query_data else ''
+        
+        if not query:
+            return jsonify({"ok": False, "error": "No query provided"})
+        
+        response = generate_perfect_rag_response(ORG_ID, query)
+        return jsonify({"ok": True, "response": response})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/perfect-context")
+def perfect_context_retrieval():
+    """Retrieve perfect context using multiple strategies."""
+    try:
+        query_data = request.json
+        query = query_data.get('query', '') if query_data else ''
+        max_contexts = query_data.get('max_contexts', 20) if query_data else 20
+        
+        if not query:
+            return jsonify({"ok": False, "error": "No query provided"})
+        
+        contexts = retrieve_perfect_context(ORG_ID, query, max_contexts)
+        return jsonify({"ok": True, "contexts": contexts})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
