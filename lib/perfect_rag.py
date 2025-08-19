@@ -7,6 +7,7 @@ import re
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
+from lib.detail_extractor import detail_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -56,19 +57,8 @@ CRITICAL INSTRUCTIONS:
         return "\n".join(prompt_parts)
     
     def extract_specific_details(self, content: str) -> Dict[str, List[str]]:
-        """Extract specific numerical and temporal details from content"""
-        
-        details = {
-            'amounts': re.findall(r'\$[\d,]+(?:\.\d{2})?', content),
-            'years': re.findall(r'\b(?:19|20)\d{2}\b', content),
-            'percentages': re.findall(r'\d+(?:\.\d+)?%', content),
-            'dates': re.findall(r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b', content),
-            'timeframes': re.findall(r'\b\d+\s+(?:days?|weeks?|months?|years?)\b', content),
-            'vote_counts': re.findall(r'\b\d+\s*-\s*\d+\s*(?:vote|approval)\b', content, re.IGNORECASE),
-            'meeting_references': re.findall(r'\b(?:board|committee|meeting)\s+(?:of\s+)?(?:January|February|March|April|May|June|July|August|September|October|November|December|\d{1,2}\/\d{1,2}\/\d{4})\b', content, re.IGNORECASE)
-        }
-        
-        return {k: v for k, v in details.items() if v}  # Only return non-empty lists
+        """Extract specific numerical and temporal details from content using enhanced extractor"""
+        return detail_extractor.extract_all_details(content)
     
     def identify_historical_patterns(self, contexts: List[Dict[str, Any]]) -> List[str]:
         """Identify recurring patterns across historical contexts"""
@@ -129,17 +119,28 @@ CRITICAL INSTRUCTIONS:
         # Identify historical patterns
         patterns = self.identify_historical_patterns(raw_contexts)
         
+        # Generate veteran insights for each context
+        veteran_insights = []
+        for ctx in raw_contexts:
+            content = ctx.get('content', '')
+            if content:
+                insight = detail_extractor.create_veteran_insight_summary(content)
+                if insight and insight != "Limited specific details available for veteran analysis.":
+                    veteran_insights.append(insight)
+        
         # Build enhanced context package
         context_package = {
             'primary_contexts': raw_contexts,
             'extracted_details': all_details,
             'historical_patterns': patterns,
+            'veteran_insights': veteran_insights,
             'query': query,
             'context_summary': {
                 'total_sources': len(raw_contexts),
                 'years_mentioned': len(all_details.get('years', [])),
                 'amounts_mentioned': len(all_details.get('amounts', [])),
-                'patterns_identified': len(patterns)
+                'patterns_identified': len(patterns),
+                'veteran_insights_generated': len(veteran_insights)
             }
         }
         
