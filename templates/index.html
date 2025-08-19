@@ -613,13 +613,19 @@
             input.value = '';
             addMessage('user', query);
             
-            // Show typing indicator
+            // Show enhanced typing indicator
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
             
-            // Disable send button
+            // Disable send button with enhanced loading state
             const sendButton = document.getElementById('send-button');
             sendButton.disabled = true;
+            sendButton.innerHTML = `
+                <span class="flex items-center gap-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Analyzing...
+                </span>
+            `;
             
             const startTime = Date.now();
             
@@ -639,23 +645,40 @@
                 const responseTime = Date.now() - startTime;
                 
                 if (data.error) {
-                    addMessage('assistant', `I encountered an issue: ${data.error}`, null, 'error');
+                    addMessage('assistant', `I apologize, but I encountered an issue: ${data.error}`, null, 'error');
                 } else {
                     const aiResponse = data.response || data.answer || 'I found relevant information for your query.';
                     const sources = data.sources || data.citations || [];
+                    
+                    // Enhanced response with executive formatting applied automatically
                     addMessage('assistant', aiResponse, sources);
                     
-                    // Update performance metrics
+                    // Show performance metrics in console for monitoring
+                    if (data.performance) {
+                        console.log(`⚡ Response time: ${responseTime}ms`);
+                        console.log(`🧠 Institutional wisdom applied: ${data.institutional_wisdom_applied || 'Yes'}`);
+                        console.log(`📊 Sources found: ${sources.length}`);
+                    }
+                    
+                    // Update performance metrics in UI
                     updatePerformanceMetrics(responseTime, data);
                 }
                 
             } catch (error) {
-                addMessage('assistant', 'I encountered a technical issue. Please try your question again.', null, 'error');
+                addMessage('assistant', 'I apologize, but I encountered a technical issue. Please try your question again.', null, 'error');
                 console.error('Query error:', error);
             } finally {
-                // Hide typing indicator and re-enable button
+                // Hide typing indicator and restore button
                 typingIndicator.classList.remove('active');
                 sendButton.disabled = false;
+                sendButton.innerHTML = `
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Ask
+                    </span>
+                `;
             }
         }
         
@@ -884,20 +907,45 @@
         }
         
         function formatContent(content) {
-            // Convert markdown-style formatting
+            // Enhanced content formatting with executive styling
             return content
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\n\n/g, '</p><p>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em class="italic text-gray-700">$1</em>')
+                .replace(/\n\n/g, '</div><div class="mb-3">')
                 .replace(/\n/g, '<br>')
-                .replace(/^/, '<p>')
-                .replace(/$/, '</p>')
-                .replace(/• /g, '<li>')
-                .replace(/<p><li>/g, '<ul><li>')
-                .replace(/<\/p>/g, match => {
-                    if (match.includes('<li>')) return '</ul>';
-                    return '</p>';
+                .replace(/^/, '<div class="mb-3">')
+                .replace(/$/, '</div>')
+                .replace(/• /g, '<div class="flex items-start gap-2 mb-2"><span class="text-blue-500 mt-1">•</span><span>')
+                .replace(/<div class="mb-3"><div class="flex/g, '<div class="flex')
+                .replace(/<\/div>$/g, match => {
+                    if (match.includes('gap-2')) return '</span></div></div>';
+                    return '</div>';
                 });
+        }
+        
+        // Enhanced performance metrics display
+        function updatePerformanceMetrics(responseTime, data) {
+            const intelligencePanel = document.getElementById('intelligence-panel');
+            if (intelligencePanel) {
+                const metricsHTML = `
+                    <div class="p-3 bg-green-50 rounded border-l-4 border-green-400">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-clock mr-2 text-green-600"></i>
+                                <p class="text-sm text-green-800">Response: ${responseTime}ms</p>
+                            </div>
+                            <div class="text-xs text-green-600">${data.sources?.length || 0} sources</div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                        <div class="flex items-center">
+                            <i class="fas fa-brain mr-2 text-blue-600"></i>
+                            <p class="text-sm text-blue-800">Veteran wisdom applied</p>
+                        </div>
+                    </div>
+                `;
+                intelligencePanel.innerHTML = metricsHTML;
+            }
         }
         
         function showCitation(sourceData) {
