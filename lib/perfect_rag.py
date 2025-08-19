@@ -210,6 +210,183 @@ CRITICAL INSTRUCTIONS:
             predictions['risk_factors'].append("Multiple fee structures create precedent confusion")
         
         return predictions
+    
+    def generate_perfect_response(self, org_id: str, query: str) -> Dict[str, Any]:
+        """Generate response with enhanced veteran wisdom and comprehensive analysis"""
+        try:
+            # Import OpenAI for direct response generation
+            from openai import OpenAI
+            client = OpenAI()
+            
+            # Get comprehensive context using existing RAG system
+            from lib.rag import perform_rag_advanced
+            basic_response = perform_rag_advanced(org_id, query)
+            
+            if isinstance(basic_response, tuple) and len(basic_response) >= 2:
+                response_text, metadata = basic_response
+                contexts = metadata.get('sources', []) if isinstance(metadata, dict) else []
+            else:
+                # Fallback if RAG response format is unexpected
+                contexts = []
+                response_text = str(basic_response)
+            
+            # Build veteran context package
+            context_package = self.build_veteran_context_package(query, contexts)
+            
+            # Generate comprehensive precedent analysis
+            precedent_analysis = precedent_analyzer.analyze_precedents(query, contexts)
+            
+            # Extract all specific details
+            all_details = context_package.get('extracted_details', {})
+            
+            # Build enhanced system prompt with veteran requirements
+            system_prompt = """You are the digital embodiment of a 30-year veteran board member with perfect institutional memory. 
+
+ENHANCED RESPONSE REQUIREMENTS:
+1. Begin with "In my 30 years of board experience..." or similar veteran opening
+2. Include specific amounts, years, and vote counts from the provided details
+3. Reference historical precedents with exact examples and outcomes
+4. Provide specific warnings based on past failures with percentages
+5. Predict timeline and success probability based on similar decisions
+6. Use veteran language patterns throughout
+7. Structure response with clear sections for maximum impact
+
+FORMAT YOUR RESPONSE AS:
+### Historical Context
+[Specific years, amounts, decisions with exact details from extracted data]
+
+### Practical Wisdom  
+[Precedent warnings and lessons learned with specific examples and percentages]
+
+### Outcome Predictions
+[Success rates, timelines, risk factors based on historical data]
+
+### Implementation Guidance
+[Step-by-step advice based on what has worked historically]
+
+Use simple numbered citations [1], [2], [3] for readability."""
+            
+            # Build enhanced user prompt with specific details and precedents
+            detail_summary = detail_extractor.create_veteran_insight_summary("\n".join([ctx.get('content', '') for ctx in contexts]))
+            precedent_summary = precedent_analyzer.generate_veteran_precedent_summary(query, precedent_analysis)
+            
+            user_prompt_parts = [
+                f"QUESTION: {query}\n",
+                f"EXTRACTED INSTITUTIONAL DETAILS:\n{detail_summary}\n" if detail_summary else "",
+                f"PRECEDENT ANALYSIS:\n{precedent_summary}\n" if precedent_summary else "",
+                "RELEVANT HISTORICAL CONTEXT:"
+            ]
+            
+            # Add top context with citations
+            for i, context in enumerate(contexts[:3], 1):
+                content = context.get('content', '')[:400]
+                source = context.get('source', context.get('title', 'Document'))
+                page = context.get('page', context.get('page_number', '?'))
+                user_prompt_parts.append(f"[{i}] From {source} (page {page}):\n{content}...\n")
+            
+            user_prompt_parts.append("""
+CRITICAL VETERAN RESPONSE REQUIREMENTS:
+• Start with veteran perspective opening
+• Include specific extracted amounts, years, and percentages in Historical Context
+• Reference exact precedents with success/failure rates in Practical Wisdom
+• Provide timeline predictions and risk assessments in Outcome Predictions
+• Give step-by-step guidance in Implementation section
+• Use authentic 30-year veteran language throughout
+• Cite sources with simple numbered references [1], [2], [3]
+""")
+            
+            user_prompt = "\n".join(filter(None, user_prompt_parts))
+            
+            # Generate enhanced veteran response
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",  # Use the working model
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2,
+                    max_tokens=2000
+                )
+                
+                enhanced_response_text = response.choices[0].message.content
+                
+            except Exception as e:
+                logger.error(f"OpenAI generation failed: {e}")
+                # Fallback to basic response with veteran enhancement
+                enhanced_response_text = f"In my 30 years of board experience, {response_text}"
+            
+            # Calculate enhanced confidence score
+            confidence = self._calculate_enhanced_confidence(all_details, precedent_analysis)
+            
+            return {
+                'response': enhanced_response_text,
+                'context_used': context_package,
+                'extracted_details': all_details,
+                'precedent_analysis': precedent_analysis,
+                'confidence': confidence,
+                'sources': self._compile_enhanced_sources(contexts),
+                'veteran_wisdom_applied': True,
+                'precedent_score': precedent_analysis.get('precedent_score', 0)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in generate_perfect_response: {e}")
+            return {
+                'response': f"I encountered an issue accessing my institutional memory. Please try again.",
+                'error': str(e),
+                'veteran_wisdom_applied': False
+            }
+    
+    def _calculate_enhanced_confidence(self, details: Dict[str, List[str]], precedent_analysis: Dict[str, Any]) -> int:
+        """Calculate confidence score based on details and precedent analysis"""
+        confidence = 50  # Base confidence
+        
+        # Add confidence for specific details
+        if details.get('amounts'):
+            confidence += len(details['amounts']) * 5
+        if details.get('years'):
+            confidence += len(details['years']) * 3
+        if details.get('vote_counts'):
+            confidence += len(details['vote_counts']) * 10
+        if details.get('committee_names'):
+            confidence += len(details['committee_names']) * 5
+        
+        # Add confidence for precedent analysis
+        precedent_score = precedent_analysis.get('precedent_score', 0)
+        confidence += precedent_score * 0.3  # Scale precedent score
+        
+        # Add confidence for similar decisions
+        similar_decisions = len(precedent_analysis.get('similar_decisions', []))
+        confidence += similar_decisions * 5
+        
+        # Reduce confidence for high risk factors
+        risk_factors = len(precedent_analysis.get('risk_factors', []))
+        confidence -= risk_factors * 8
+        
+        return max(0, min(100, int(confidence)))
+    
+    def _compile_enhanced_sources(self, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Compile enhanced source information with precedent context"""
+        sources = []
+        for i, context in enumerate(contexts[:5], 1):
+            source_info = {
+                'citation': f"[{i}]",
+                'title': context.get('source', context.get('title', 'Document')),
+                'page': context.get('page', context.get('page_number', '?')),
+                'content_preview': context.get('content', '')[:200] + '...',
+                'relevance_score': context.get('relevance_score', 0.5)
+            }
+            
+            # Add extracted details for this source
+            if context.get('content'):
+                source_details = detail_extractor.extract_all_details(context['content'])
+                if source_details:
+                    source_info['extracted_details'] = source_details
+            
+            sources.append(source_info)
+        
+        return sources
 
 # Global instance for use across the application
 perfect_rag = PerfectRAGEngine()
@@ -226,58 +403,10 @@ def retrieve_perfect_context(org_id: str, query: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 def generate_perfect_rag_response(org_id: str, query: str) -> Dict[str, Any]:
-    """Enhanced RAG response with veteran board member intelligence"""
+    """Enhanced RAG response with veteran board member intelligence using perfect response generation"""
     try:
-        # Import the original RAG functions
-        from lib.rag import perform_rag_advanced
-        
-        # Get basic RAG response
-        basic_response = perform_rag_advanced(org_id, query)
-        
-        if isinstance(basic_response, tuple) and len(basic_response) >= 2:
-            response_text, metadata = basic_response
-            
-            # Extract contexts from metadata if available
-            contexts = []
-            if isinstance(metadata, dict) and metadata.get('sources'):
-                contexts = metadata.get('sources', [])
-            
-            # Build enhanced context package
-            context_package = perfect_rag.build_veteran_context_package(query, contexts)
-            
-            # Generate comprehensive precedent analysis
-            precedent_analysis = precedent_analyzer.analyze_precedents(query, contexts)
-            
-            # Generate legacy warnings and predictions for compatibility
-            warnings = perfect_rag.generate_precedent_warnings(query, context_package)
-            predictions = perfect_rag.predict_outcomes(query, context_package)
-            
-            # Enhanced metadata with veteran insights and precedent analysis
-            enhanced_metadata = {
-                **(metadata if isinstance(metadata, dict) else {}),
-                'veteran_insights': {
-                    'extracted_details': context_package.get('extracted_details', {}),
-                    'historical_patterns': context_package.get('historical_patterns', []),
-                    'precedent_warnings': warnings,
-                    'outcome_predictions': predictions,
-                    'context_summary': context_package.get('context_summary', {}),
-                    'precedent_analysis': precedent_analysis,
-                    'precedent_summary': precedent_analyzer.generate_veteran_precedent_summary(query, precedent_analysis)
-                }
-            }
-            
-            return {
-                'response': response_text,
-                'metadata': enhanced_metadata,
-                'veteran_enhanced': True
-            }
-        else:
-            # Fallback for unexpected response format
-            return {
-                'response': str(basic_response),
-                'metadata': {},
-                'veteran_enhanced': False
-            }
+        # Use the enhanced perfect response generation
+        return perfect_rag.generate_perfect_response(org_id, query)
             
     except Exception as e:
         logger.error(f"Error in generate_perfect_rag_response: {e}")
