@@ -13,6 +13,8 @@ from lib.governance_intelligence import (analyze_decision_comprehensive, predict
 from lib.memory_synthesis import (recall_topic_history, answer_with_veteran_wisdom,
                                 get_institutional_wisdom, explain_club_culture)
 from lib.perfect_rag import retrieve_perfect_context, generate_perfect_rag_response
+from lib.board_continuity_brain import (perfect_recall_query, process_document_with_perfect_capture,
+                                       comprehensive_topic_analysis, validate_system_integrity)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -487,6 +489,45 @@ def perfect_context_retrieval():
         
         contexts = retrieve_perfect_context(ORG_ID, query, max_contexts)
         return jsonify({"ok": True, "contexts": contexts})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/perfect-recall")
+def perfect_recall():
+    """Perfect recall with 30-year veteran wisdom and complete context."""
+    try:
+        query_data = request.json
+        query = query_data.get('query', '') if query_data else ''
+        
+        if not query:
+            return jsonify({"ok": False, "error": "No query provided"})
+        
+        response = perfect_recall_query(ORG_ID, query)
+        return jsonify({"ok": True, "recall": response})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/comprehensive-analysis")
+def comprehensive_analysis():
+    """Comprehensive analysis combining all intelligence systems."""
+    try:
+        data = request.json
+        topic = data.get('topic', '') if data else ''
+        
+        if not topic:
+            return jsonify({"ok": False, "error": "No topic provided"})
+        
+        analysis = comprehensive_topic_analysis(ORG_ID, topic)
+        return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/system-integrity")
+def system_integrity():
+    """Validate complete system integrity and performance."""
+    try:
+        integrity_report = validate_system_integrity(ORG_ID)
+        return jsonify({"ok": True, "integrity": integrity_report})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
