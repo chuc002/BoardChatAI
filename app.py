@@ -4,6 +4,7 @@ from lib.ingest import upsert_document
 from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement_coverage
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
 from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
+from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -268,6 +269,28 @@ def perfect_extract_document(doc_id):
             }
         })
         
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/patterns")
+def analyze_patterns():
+    """Analyze all governance patterns."""
+    try:
+        patterns = analyze_governance_patterns(ORG_ID)
+        return jsonify({"ok": True, "patterns": patterns})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/predict")  
+def predict_outcome():
+    """Predict outcome for a proposal."""
+    try:
+        proposal_data = request.json
+        if not proposal_data:
+            return jsonify({"ok": False, "error": "No proposal data provided"})
+        
+        prediction = predict_proposal_outcome(ORG_ID, proposal_data)
+        return jsonify({"ok": True, "prediction": prediction})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
