@@ -5,6 +5,9 @@ from lib.enhanced_ingest import enhanced_upsert_document, validate_reinstatement
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
 from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
+from lib.knowledge_graph import (build_knowledge_graph, analyze_decision_ripple_effects, 
+                                get_member_complete_analysis, trace_policy_evolution,
+                                find_governance_cycles, query_knowledge_graph)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -291,6 +294,67 @@ def predict_outcome():
         
         prediction = predict_proposal_outcome(ORG_ID, proposal_data)
         return jsonify({"ok": True, "prediction": prediction})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/knowledge-graph")
+def build_graph():
+    """Build the institutional knowledge graph."""
+    try:
+        result = build_knowledge_graph(ORG_ID)
+        return jsonify({"ok": True, "graph": result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/ripple-effects/<decision_id>")
+def get_ripple_effects(decision_id):
+    """Get ripple effects of a specific decision."""
+    try:
+        years_forward = int(request.args.get('years', 5))
+        effects = analyze_decision_ripple_effects(ORG_ID, decision_id, years_forward)
+        return jsonify({"ok": True, "effects": effects})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/member-analysis/<member_name>")
+def get_member_analysis(member_name):
+    """Get complete analysis of a board member."""
+    try:
+        analysis = get_member_complete_analysis(ORG_ID, member_name)
+        return jsonify({"ok": True, "analysis": analysis})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/policy-evolution/<policy_topic>")
+def get_policy_evolution(policy_topic):
+    """Trace policy evolution over time."""
+    try:
+        evolution = trace_policy_evolution(ORG_ID, policy_topic)
+        return jsonify({"ok": True, "evolution": evolution})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/governance-cycles")
+def get_governance_cycles():
+    """Find cyclical governance patterns."""
+    try:
+        cycles = find_governance_cycles(ORG_ID)
+        return jsonify({"ok": True, "cycles": cycles})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/graph-query")
+def query_graph():
+    """Query the knowledge graph."""
+    try:
+        query_data = request.json
+        query = query_data.get('query', '') if query_data else ''
+        
+        if not query:
+            return jsonify({"ok": False, "error": "No query provided"})
+        
+        results = query_knowledge_graph(ORG_ID, query)
+        return jsonify({"ok": True, "results": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
