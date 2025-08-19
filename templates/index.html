@@ -784,9 +784,65 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
+        // Function to create executive summary boxes for key insights
+        function addExecutiveSummary(content) {
+            // Extract key insights for executive summary
+            const financialMentions = content.match(/\$([0-9,]+(?:\.[0-9]{2})?)/g) || [];
+            const yearMentions = content.match(/\b((?:19|20)\d{2})\b/g) || [];
+            const percentageMentions = content.match(/(\d+(?:\.\d+)?%)/g) || [];
+            const voteMentions = content.match(/(\d+-\d+)/g) || [];
+            const committeeMentions = content.match(/(?:Finance|House|Membership|Golf|Executive|Board|Governance)\s*Committee/gi) || [];
+            
+            if (financialMentions.length > 0 || yearMentions.length > 0 || percentageMentions.length > 0 || voteMentions.length > 0) {
+                const summaryHTML = `
+                    <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">📊</span>
+                            <span class="font-semibold text-blue-900">Executive Summary</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            ${financialMentions.length > 0 ? `
+                                <div class="text-center p-2 bg-white rounded border border-green-200">
+                                    <div class="text-xl font-bold text-green-600">${financialMentions.length}</div>
+                                    <div class="text-gray-600 text-xs">Financial References</div>
+                                    <div class="text-green-700 text-xs mt-1">${financialMentions.slice(0, 2).join(', ')}</div>
+                                </div>
+                            ` : ''}
+                            ${yearMentions.length > 0 ? `
+                                <div class="text-center p-2 bg-white rounded border border-purple-200">
+                                    <div class="text-xl font-bold text-purple-600">${[...new Set(yearMentions)].length}</div>
+                                    <div class="text-gray-600 text-xs">Historical Years</div>
+                                    <div class="text-purple-700 text-xs mt-1">${[...new Set(yearMentions)].slice(0, 3).join(', ')}</div>
+                                </div>
+                            ` : ''}
+                            ${percentageMentions.length > 0 ? `
+                                <div class="text-center p-2 bg-white rounded border border-blue-200">
+                                    <div class="text-xl font-bold text-blue-600">${percentageMentions.length}</div>
+                                    <div class="text-gray-600 text-xs">Success Metrics</div>
+                                    <div class="text-blue-700 text-xs mt-1">${percentageMentions.slice(0, 2).join(', ')}</div>
+                                </div>
+                            ` : ''}
+                            ${committeeMentions.length > 0 ? `
+                                <div class="text-center p-2 bg-white rounded border border-amber-200">
+                                    <div class="text-xl font-bold text-amber-600">${[...new Set(committeeMentions.map(c => c.toLowerCase()))].length}</div>
+                                    <div class="text-gray-600 text-xs">Committees Involved</div>
+                                    <div class="text-amber-700 text-xs mt-1">${[...new Set(committeeMentions)].slice(0, 2).join(', ')}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                return summaryHTML;
+            }
+            return '';
+        }
+
         // New function for executive-friendly content formatting
         function formatExecutiveContent(content) {
-            return content
+            // First add executive summary if applicable
+            const executiveSummary = addExecutiveSummary(content);
+            
+            const formattedContent = content
                 // Format headers with proper styling
                 .replace(/### (.*?)\n/g, '<div class="mb-4 mt-6 first:mt-0"><h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-3"><span class="w-1 h-6 bg-blue-500 rounded"></span>$1</h3></div>')
                 
@@ -817,6 +873,8 @@
                 
                 // Handle remaining line breaks
                 .replace(/\n/g, '<br>');
+            
+            return executiveSummary + formattedContent;
         }
         
         // Function for predefined questions
