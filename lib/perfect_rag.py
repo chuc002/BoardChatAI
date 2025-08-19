@@ -219,8 +219,11 @@ CRITICAL INSTRUCTIONS:
             client = OpenAI()
             
             # Get comprehensive context using existing RAG system
-            from lib.rag import perform_rag_advanced
-            basic_response = perform_rag_advanced(org_id, query)
+            from lib.rag import smart_retrieve
+            contexts = smart_retrieve(org_id, query, k=5)
+            
+            # Create mock basic response structure for compatibility
+            basic_response = ("", {"sources": contexts})
             
             if isinstance(basic_response, tuple) and len(basic_response) >= 2:
                 response_text, metadata = basic_response
@@ -396,8 +399,9 @@ def retrieve_perfect_context(org_id: str, query: str) -> Dict[str, Any]:
     """Legacy function for retrieving context (compatibility wrapper)"""
     try:
         # Import the original RAG functions to maintain compatibility
-        from lib.rag import perform_rag_advanced
-        return perform_rag_advanced(org_id, query)
+        from lib.rag import smart_retrieve
+        contexts = smart_retrieve(org_id, query, k=5)
+        return {"sources": contexts}
     except Exception as e:
         logger.error(f"Error in retrieve_perfect_context: {e}")
         return {"error": str(e)}
