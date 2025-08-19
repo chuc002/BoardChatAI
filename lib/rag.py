@@ -2,6 +2,12 @@ from openai import OpenAI
 from lib.supa import supa, signed_url_for
 import os, time, math
 import tiktoken
+import numpy as np
+import logging
+import re
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 client = OpenAI()
 
