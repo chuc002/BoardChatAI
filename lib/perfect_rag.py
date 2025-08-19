@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from lib.detail_extractor import detail_extractor
+from lib.precedent_analyzer import precedent_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -244,11 +245,14 @@ def generate_perfect_rag_response(org_id: str, query: str) -> Dict[str, Any]:
             # Build enhanced context package
             context_package = perfect_rag.build_veteran_context_package(query, contexts)
             
-            # Generate precedent warnings and predictions
+            # Generate comprehensive precedent analysis
+            precedent_analysis = precedent_analyzer.analyze_precedents(query, contexts)
+            
+            # Generate legacy warnings and predictions for compatibility
             warnings = perfect_rag.generate_precedent_warnings(query, context_package)
             predictions = perfect_rag.predict_outcomes(query, context_package)
             
-            # Enhanced metadata with veteran insights
+            # Enhanced metadata with veteran insights and precedent analysis
             enhanced_metadata = {
                 **(metadata if isinstance(metadata, dict) else {}),
                 'veteran_insights': {
@@ -256,7 +260,9 @@ def generate_perfect_rag_response(org_id: str, query: str) -> Dict[str, Any]:
                     'historical_patterns': context_package.get('historical_patterns', []),
                     'precedent_warnings': warnings,
                     'outcome_predictions': predictions,
-                    'context_summary': context_package.get('context_summary', {})
+                    'context_summary': context_package.get('context_summary', {}),
+                    'precedent_analysis': precedent_analysis,
+                    'precedent_summary': precedent_analyzer.generate_veteran_precedent_summary(query, precedent_analysis)
                 }
             }
             

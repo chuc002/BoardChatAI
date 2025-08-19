@@ -1,0 +1,70 @@
+# Update the generate_perfect_response method in lib/perfect_rag.py:
+
+def generate_perfect_response(self, org_id: str, query: str) -> Dict[str, Any]:
+    """Generate response with enhanced veteran wisdom"""
+    
+    # Get comprehensive context
+    context_package = self.retrieve_complete_context(org_id, query)
+    
+    # Extract specific details
+    detail_extractor = SpecificDetailExtractor()
+    all_details = {}
+    for context in context_package['primary_contexts']:
+        details = detail_extractor.extract_all_details(context['content'])
+        for key, values in details.items():
+            if key not in all_details:
+                all_details[key] = []
+            all_details[key].extend(values)
+    
+    # Analyze precedents
+    precedent_analyzer = PrecedentAnalyzer()
+    precedent_analysis = precedent_analyzer.analyze_precedents(query, context_package['primary_contexts'])
+    
+    # Build enhanced system prompt
+    system_prompt = ENHANCED_VETERAN_SYSTEM_PROMPT
+    
+    # Build enhanced user prompt with specific details and precedents
+    user_prompt_parts = [
+        f"Question: {query}\n",
+        f"EXTRACTED DETAILS: {detail_extractor.create_detail_summary(all_details)}\n",
+        f"PRECEDENT ANALYSIS: {precedent_analysis}\n",
+        "RELEVANT CONTEXT:"
+    ]
+    
+    for context in context_package['primary_contexts'][:3]:
+        user_prompt_parts.append(f"- {context['content'][:300]}...")
+    
+    user_prompt_parts.append("""
+RESPONSE REQUIREMENTS:
+1. Include specific amounts, years, and outcomes from the extracted details
+2. Reference at least 2 historical precedents with specific examples
+3. Provide 2-3 specific warnings based on past failures
+4. Predict timeline and success probability based on similar decisions
+5. Use authentic veteran language throughout
+6. Structure response with clear sections for maximum impact
+""")
+    
+    user_prompt = "\n".join(user_prompt_parts)
+    
+    # Generate response with enhanced context
+    response = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.3,
+        max_tokens=2000
+    )
+    
+    response_text = response.choices[0].message.content
+    
+    return {
+        'response': response_text,
+        'context_used': context_package,
+        'extracted_details': all_details,
+        'precedent_analysis': precedent_analysis,
+        'confidence': self._calculate_enhanced_confidence(all_details, precedent_analysis),
+        'sources': self._compile_sources(context_package),
+        'veteran_wisdom_applied': True
+    }
