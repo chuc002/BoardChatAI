@@ -1,0 +1,73 @@
+// Update your sendQuery function to include executive formatting:
+
+async function sendQuery() {
+    const input = document.getElementById('query-input');
+    const query = input.value.trim();
+    
+    if (!query) return;
+    
+    // Clear input and show user message
+    input.value = '';
+    addMessage('user', query);
+    
+    // Show enhanced typing indicator
+    const typingIndicator = document.getElementById('typing-indicator');
+    typingIndicator.classList.add('active');
+    
+    // Disable ask button with enhanced loading state
+    const askButton = document.getElementById('ask-button');
+    askButton.disabled = true;
+    askButton.innerHTML = `
+        <span class="flex items-center gap-2">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            Analyzing...
+        </span>
+    `;
+    
+    try {
+        const response = await fetch('/api/query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                org_id: ORG_ID,
+                query: query
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            addMessage('assistant', `I apologize, but I encountered an issue: ${data.error}`);
+        } else {
+            // Add executive summary before main response
+            const summaryHTML = addExecutiveSummary(data.response);
+            const enhancedResponse = summaryHTML + data.response;
+            
+            addMessage('assistant', enhancedResponse, data.sources);
+            
+            // Show performance metrics in console for demo
+            if (data.performance) {
+                console.log(`⚡ Response time: ${data.performance.response_time_ms}ms`);
+                console.log(`🧠 Institutional wisdom applied: ${data.institutional_wisdom_applied}`);
+            }
+        }
+        
+    } catch (error) {
+        addMessage('assistant', 'I apologize, but I encountered a technical issue. Please try your question again.');
+        console.error('Error:', error);
+    } finally {
+        // Hide typing indicator and restore button
+        typingIndicator.classList.remove('active');
+        askButton.disabled = false;
+        askButton.innerHTML = `
+            <span class="flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Ask
+            </span>
+        `;
+    }
+}
