@@ -1,0 +1,41 @@
+// Add this function to create executive summary boxes for key insights:
+
+function addExecutiveSummary(content) {
+    // Extract key insights for executive summary
+    const financialMentions = content.match(/\$([0-9,]+(?:\.[0-9]{2})?)/g) || [];
+    const yearMentions = content.match(/\b((?:19|20)\d{2})\b/g) || [];
+    const percentageMentions = content.match(/(\d+(?:\.\d+)?%)/g) || [];
+    
+    if (financialMentions.length > 0 || yearMentions.length > 0 || percentageMentions.length > 0) {
+        const summaryHTML = `
+            <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-lg">📊</span>
+                    <span class="font-semibold text-blue-900">Executive Summary</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    ${financialMentions.length > 0 ? `
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">${financialMentions.length}</div>
+                            <div class="text-gray-600">Financial References</div>
+                        </div>
+                    ` : ''}
+                    ${yearMentions.length > 0 ? `
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600">${yearMentions.length}</div>
+                            <div class="text-gray-600">Historical Years</div>
+                        </div>
+                    ` : ''}
+                    ${percentageMentions.length > 0 ? `
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">${percentageMentions.length}</div>
+                            <div class="text-gray-600">Success Metrics</div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        return summaryHTML;
+    }
+    return '';
+}

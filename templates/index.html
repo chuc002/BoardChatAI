@@ -704,63 +704,119 @@
             const messagesContainer = document.getElementById('chat-messages');
             
             const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-4 message-enter ${sender === 'user' ? 'text-right' : 'text-left'}`;
+            messageDiv.className = `message-enter mb-6 ${sender === 'user' ? 'text-right' : 'text-left'}`;
             
             const bubbleDiv = document.createElement('div');
-            let bubbleClass, iconClass, senderLabel;
+            bubbleDiv.className = `inline-block max-w-4xl p-6 rounded-xl ${
+                sender === 'user' 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'bg-white border border-gray-200 shadow-lg'
+            }`;
+            
+            if (sender === 'assistant' || (sender !== 'user' && type !== 'error')) {
+                // Add AI header with enhanced styling
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex items-center gap-3 mb-4 pb-3 border-b border-gray-100';
+                headerDiv.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🧠</span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-gray-800">BoardContinuity AI</span>
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">30-Year Veteran</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Institutional Memory • Perfect Recall</div>
+                        </div>
+                    </div>
+                `;
+                bubbleDiv.appendChild(headerDiv);
+            } else if (sender === 'veteran') {
+                // Add veteran header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex items-center gap-3 mb-4 pb-3 border-b border-amber-200';
+                headerDiv.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🎖️</span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-amber-800">Veteran Board Member</span>
+                                <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">30 Years Experience</span>
+                            </div>
+                            <div class="text-xs text-amber-600 mt-1">Institutional Wisdom • Strategic Guidance</div>
+                        </div>
+                    </div>
+                `;
+                bubbleDiv.appendChild(headerDiv);
+                bubbleDiv.className = 'inline-block max-w-4xl p-6 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 shadow-lg';
+            }
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = sender === 'user' ? 'text-white' : 'text-gray-800';
             
             if (sender === 'user') {
-                bubbleClass = 'bg-blue-600 text-white';
-                iconClass = '';
-                senderLabel = '';
-            } else if (sender === 'veteran') {
-                bubbleClass = 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-gray-800';
-                iconClass = '<div class="processing-spinner mr-2" style="width: 16px; height: 16px; border-width: 2px;"></div>';
-                senderLabel = '<div class="text-xs text-amber-600 font-medium mb-2 flex items-center"><i class="fas fa-medal mr-1"></i>30-Year Veteran Board Member</div>';
-            } else if (type === 'error') {
-                bubbleClass = 'bg-red-50 border border-red-200 text-red-800 error-shake';
-                iconClass = '<i class="fas fa-exclamation-circle text-red-600 mr-2"></i>';
-                senderLabel = '';
+                contentDiv.textContent = content;
             } else {
-                bubbleClass = 'bg-white border border-gray-200 text-gray-800';
-                iconClass = '<i class="fas fa-robot text-blue-600 mr-2"></i>';
-                senderLabel = '<div class="text-xs text-blue-600 font-medium mb-2 flex items-center"><i class="fas fa-graduation-cap mr-1"></i>BoardContinuity AI • 30-Year Veteran</div>';
+                // Enhanced content formatting for assistant messages
+                const formattedContent = formatExecutiveContent(content);
+                contentDiv.innerHTML = formattedContent;
             }
             
-            bubbleDiv.className = `inline-block max-w-3xl p-4 rounded-lg ${bubbleClass}`;
-            
-            // Format content with line breaks and better structure
-            const formattedContent = formatContent(content);
-            bubbleDiv.innerHTML = senderLabel + iconClass + formattedContent;
-            
-            // Replace spinner with robot icon after a moment for AI messages
-            if (sender !== 'user' && sender !== 'veteran' && type !== 'error') {
-                setTimeout(() => {
-                    bubbleDiv.innerHTML = bubbleDiv.innerHTML.replace('processing-spinner', 'fas fa-robot text-blue-600');
-                }, 1000);
-            }
-            
+            bubbleDiv.appendChild(contentDiv);
             messageDiv.appendChild(bubbleDiv);
             
-            // Add sources with clickable citations
+            // Enhanced sources display
             if (sources && sources.length > 0) {
                 const sourcesDiv = document.createElement('div');
-                sourcesDiv.className = 'mt-2 text-xs text-gray-500 max-w-3xl inline-block';
-                
-                const sourceLinks = sources.map((s, idx) => {
-                    const sourceText = `${s.source || s.title || 'Document'} (p.${s.page || s.page_number || '?'})`;
-                    return `<button onclick="showCitation('${encodeURIComponent(JSON.stringify(s))}')" 
-                                    class="text-blue-500 hover:text-blue-700 underline mr-2 chunk-animation" style="animation-delay: ${idx * 0.1}s">
-                                [${idx + 1}] ${sourceText}
-                            </button>`;
-                }).join(' ');
-                
-                sourcesDiv.innerHTML = '<i class="fas fa-paperclip mr-1"></i><strong>Sources:</strong> ' + sourceLinks;
+                sourcesDiv.className = 'mt-4 text-xs';
+                sourcesDiv.innerHTML = `
+                    <div class="inline-flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 px-4 py-3 rounded-lg shadow-sm">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="text-blue-700 font-medium">Sources:</span>
+                        <span class="text-blue-800">${sources.map(s => `${s.source || s.title} (p.${s.page || s.page_number})`).join(', ')}</span>
+                    </div>
+                `;
                 messageDiv.appendChild(sourcesDiv);
             }
             
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // New function for executive-friendly content formatting
+        function formatExecutiveContent(content) {
+            return content
+                // Format headers with proper styling
+                .replace(/### (.*?)\n/g, '<div class="mb-4 mt-6 first:mt-0"><h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-3"><span class="w-1 h-6 bg-blue-500 rounded"></span>$1</h3></div>')
+                
+                // Format numbered lists with executive styling
+                .replace(/(\d+)\.\s\*\*(.*?)\*\*:\s(.*?)(?=\n|$)/g, 
+                    '<div class="mb-3 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-400"><div class="flex items-start gap-3"><span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">$1</span><div><div class="font-semibold text-gray-800 mb-1">$2</div><div class="text-gray-700 text-sm">$3</div></div></div></div>')
+                
+                // Format bold text
+                .replace(/\*\*(.*?)\*\*/g, '<span class="font-semibold text-gray-900">$1</span>')
+                
+                // Format bullet points with icons
+                .replace(/- (.*?)(?=\n|$)/g, '<div class="flex items-start gap-2 mb-2"><span class="text-blue-500 mt-1">•</span><span class="text-gray-700">$1</span></div>')
+                
+                // Format financial amounts with highlighting
+                .replace(/\$([0-9,]+(?:\.[0-9]{2})?)/g, '<span class="font-mono bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">$$$1</span>')
+                
+                // Format percentages with highlighting
+                .replace(/(\d+(?:\.\d+)?%)/g, '<span class="font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">$1</span>')
+                
+                // Format years with highlighting
+                .replace(/\b((?:19|20)\d{2})\b/g, '<span class="font-mono bg-purple-100 text-purple-800 px-2 py-1 rounded font-semibold">$1</span>')
+                
+                // Format vote counts
+                .replace(/(\d+-\d+)/g, '<span class="font-mono bg-gray-100 text-gray-800 px-2 py-1 rounded font-semibold">$1</span>')
+                
+                // Add proper paragraph breaks
+                .replace(/\n\n/g, '</div><div class="mb-4">')
+                
+                // Handle remaining line breaks
+                .replace(/\n/g, '<br>');
         }
         
         // Function for predefined questions
