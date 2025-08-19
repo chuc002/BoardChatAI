@@ -30,7 +30,36 @@ USER_ID = os.getenv("DEV_USER_ID")
 
 @app.get("/")
 def home():
-    return render_template("home.html")
+    return render_template("index.html")
+
+@app.post("/api/query")
+def api_query():
+    """Enhanced API endpoint for the new frontend interface."""
+    try:
+        data = request.json
+        query = data.get('query', '') if data else ''
+        org_id = data.get('org_id', ORG_ID) if data else ORG_ID
+        
+        if not query:
+            return jsonify({"error": "No query provided"})
+        
+        # Use the existing RAG system
+        from lib.rag import answer_question_md
+        
+        result = answer_question_md(org_id, query)
+        
+        return jsonify({
+            "ok": True,
+            "response": result.get('answer', 'I could not find relevant information for your query.'),
+            "sources": result.get('sources', []),
+            "performance": {
+                "response_time_ms": result.get('processing_time_ms', 0),
+                "contexts_found": len(result.get('sources', []))
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 # ---- Documents ----
 @app.get("/docs")
