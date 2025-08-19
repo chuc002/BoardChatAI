@@ -10,6 +10,8 @@ from lib.knowledge_graph import (build_knowledge_graph, analyze_decision_ripple_
                                 find_governance_cycles, query_knowledge_graph)
 from lib.governance_intelligence import (analyze_decision_comprehensive, predict_decision_outcome,
                                        get_decision_context, analyze_governance_trends, generate_board_insights)
+from lib.memory_synthesis import (recall_topic_history, answer_with_veteran_wisdom,
+                                get_institutional_wisdom, explain_club_culture)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 
@@ -411,6 +413,48 @@ def get_board_insights():
     try:
         insights = generate_board_insights(ORG_ID)
         return jsonify({"ok": True, "insights": insights})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/recall-history/<topic>")
+def recall_complete_history(topic):
+    """Recall complete institutional history for a topic."""
+    try:
+        history = recall_topic_history(ORG_ID, topic)
+        return jsonify({"ok": True, "history": history})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.post("/veteran-wisdom")
+def get_veteran_wisdom():
+    """Get veteran board member wisdom for any question."""
+    try:
+        question_data = request.json
+        question = question_data.get('question', '') if question_data else ''
+        
+        if not question:
+            return jsonify({"ok": False, "error": "No question provided"})
+        
+        wisdom = answer_with_veteran_wisdom(ORG_ID, question)
+        return jsonify({"ok": True, "wisdom": wisdom})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/institutional-wisdom/<scenario>")
+def get_scenario_wisdom(scenario):
+    """Get institutional wisdom for a governance scenario."""
+    try:
+        wisdom = get_institutional_wisdom(ORG_ID, scenario)
+        return jsonify({"ok": True, "wisdom": wisdom})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.get("/club-culture")
+def get_club_culture():
+    """Explain the deep culture and unwritten rules."""
+    try:
+        culture = explain_club_culture(ORG_ID)
+        return jsonify({"ok": True, "culture": culture})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
