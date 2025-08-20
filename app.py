@@ -36,6 +36,7 @@ from lib.pattern_recognition import (analyze_governance_patterns, predict_propos
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 from lib.bulletproof_processing import create_bulletproof_processor, DocumentCoverageDiagnostic
+from lib.processing_queue import get_document_queue
 
 app = Flask(__name__)
 
@@ -1228,6 +1229,83 @@ def repair_coverage():
             'ok': False,
             'error': f'Coverage repair failed: {str(e)}'
         }), 500
+
+# Automated Processing Queue Endpoints
+
+@app.route('/api/queue-documents', methods=['POST'])
+def queue_documents():
+    """Add documents to automated processing queue"""
+    
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        document_ids = data.get('document_ids', None)  # Optional: specific documents
+        
+        queue = get_document_queue()
+        
+        # Since we can't use async in Flask routes directly, we'll run it in a thread
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(
+            queue.add_documents_to_queue(org_id, document_ids)
+        )
+        
+        return jsonify({
+            'success': True,
+            'queued_result': result,
+            'message': f"Added {result['added_to_queue']} documents to processing queue"
+        })
+        
+    except Exception as e:
+        print(f"Queue documents error: {str(e)}")
+        return jsonify({'error': 'Failed to queue documents', 'details': str(e)}), 500
+
+@app.route('/api/queue-status', methods=['GET'])
+def queue_status():
+    """Get processing queue status"""
+    
+    try:
+        queue = get_document_queue()
+        status = queue.get_queue_status()
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        print(f"Queue status error: {str(e)}")
+        return jsonify({'error': 'Failed to get queue status', 'details': str(e)}), 500
+
+@app.route('/api/auto-process-documents', methods=['POST'])
+def auto_process_documents():
+    """Automatically process all unprocessed documents using the queue system"""
+    
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        
+        queue = get_document_queue()
+        
+        # Add all unprocessed documents to queue
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # First add to queue
+        queue_result = loop.run_until_complete(
+            queue.add_documents_to_queue(org_id)
+        )
+        
+        return jsonify({
+            'success': True,
+            'queue_result': queue_result,
+            'processing_started': queue_result['added_to_queue'] > 0,
+            'message': f"Started automated processing of {queue_result['added_to_queue']} documents"
+        })
+        
+    except Exception as e:
+        print(f"Auto process error: {str(e)}")
+        return jsonify({'error': 'Auto processing failed', 'details': str(e)}), 500
 
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")

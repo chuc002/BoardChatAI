@@ -1,0 +1,185 @@
+# Create new file: tests/test_document_coverage.py
+
+import pytest
+import asyncio
+from lib.bulletproof_processing import BulletproofDocumentProcessor, DocumentCoverageDiagnostic
+from lib.processing_queue import document_queue
+
+class TestDocumentCoverage:
+    def __init__(self):
+        self.processor = BulletproofDocumentProcessor()
+        self.diagnostic = DocumentCoverageDiagnostic()
+    
+    def test_complete_processing_pipeline(self, org_id: str = "demo-org"):
+        """Test complete document processing pipeline"""
+        
+        print("🚀 Testing Complete Document Processing Pipeline")
+        print("=" * 60)
+        
+        # Step 1: Diagnose current coverage
+        print("Step 1: Diagnosing current coverage...")
+        diagnosis = self.diagnostic.diagnose_coverage_issues(org_id)
+        
+        print(f"Current coverage: {diagnosis['coverage_analysis']['coverage_percentage']}%")
+        print(f"Total documents: {diagnosis['coverage_analysis']['total_documents']}")
+        print(f"Processed: {diagnosis['coverage_analysis']['processed_documents']}")
+        print(f"Unprocessed: {diagnosis['coverage_analysis']['unprocessed_documents']}")
+        
+        if diagnosis['processing_issues']:
+            print("\nIssues found:")
+            for issue in diagnosis['processing_issues'][:5]:  # Show first 5
+                print(f"  - {issue['filename']}: {issue['category']}")
+        
+        # Step 2: Process all documents
+        if diagnosis['coverage_analysis']['coverage_percentage'] < 100:
+            print("\nStep 2: Processing all documents...")
+            
+            result = self.processor.process_all_documents(org_id, force_reprocess=False)
+            
+            print(f"Processing result:")
+            print(f"  - Total documents: {result['total_documents']}")
+            print(f"  - Successful: {result['successful']}")
+            print(f"  - Failed: {result['failed']}")
+            print(f"  - Final coverage: {result['final_coverage']}")
+            
+            # Step 3: Verify coverage
+            print("\nStep 3: Verifying final coverage...")
+            final_diagnosis = self.diagnostic.diagnose_coverage_issues(org_id)
+            
+            final_coverage = final_diagnosis['coverage_analysis']['coverage_percentage']
+            print(f"Final coverage: {final_coverage}%")
+            
+            # Success criteria
+            success = final_coverage >= 90  # Allow for 90%+ success rate
+            
+            print(f"\n{'✅ SUCCESS' if success else '❌ FAILURE'}: Coverage test {'passed' if success else 'failed'}")
+            
+            if not success and result['failed'] > 0:
+                print("\nFailed documents:")
+                for error in result['errors'][:3]:  # Show first 3 errors
+                    print(f"  - {error}")
+            
+            return success
+        else:
+            print("✅ All documents already processed!")
+            return True
+    
+    def test_extraction_strategies(self, test_file_path: str):
+        """Test all extraction strategies on a single file"""
+        
+        print(f"\n🔧 Testing Extraction Strategies on: {test_file_path}")
+        print("=" * 60)
+        
+        strategies = [
+            self.processor._extract_with_pypdf2,
+            self.processor._extract_with_pdfminer,
+            self.processor._extract_with_pymupdf,
+            # Skip OCR for speed in testing
+        ]
+        
+        results = []
+        
+        for strategy in strategies:
+            strategy_name = strategy.__name__.replace('_extract_with_', '')
+            print(f"\nTesting {strategy_name}...")
+            
+            try:
+                start_time = time.time()
+                text_content, pages_info = strategy(test_file_path)
+                end_time = time.time()
+                
+                result = {
+                    'strategy': strategy_name,
+                    'success': True,
+                    'text_length': len(text_content) if text_content else 0,
+                    'pages_extracted': len(pages_info) if pages_info else 0,
+                    'time_seconds': round(end_time - start_time, 2),
+                    'content_preview': text_content[:200] if text_content else "No content"
+                }
+                
+                print(f"  ✅ Success: {result['text_length']} chars, {result['pages_extracted']} pages, {result['time_seconds']}s")
+                
+            except Exception as e:
+                result = {
+                    'strategy': strategy_name,
+                    'success': False,
+                    'error': str(e),
+                    'time_seconds': round(time.time() - start_time, 2)
+                }
+                
+                print(f"  ❌ Failed: {str(e)}")
+            
+            results.append(result)
+        
+        # Determine best strategy
+        successful_strategies = [r for r in results if r['success']]
+        if successful_strategies:
+            best_strategy = max(successful_strategies, key=lambda x: x['text_length'])
+            print(f"\n🏆 Best strategy: {best_strategy['strategy']} ({best_strategy['text_length']} chars)")
+        else:
+            print("\n❌ No strategies succeeded")
+        
+        return results
+    
+    async def test_queue_processing(self, org_id: str = "demo-org"):
+        """Test queue-based processing"""
+        
+        print("\n⚡ Testing Queue Processing")
+        print("=" * 60)
+        
+        # Add documents to queue
+        print("Adding documents to queue...")
+        queue_result = await document_queue.add_documents_to_queue(org_id)
+        
+        print(f"Added {queue_result['added_to_queue']} documents to queue")
+        print(f"Queue size: {queue_result['queue_size']}")
+        
+        # Monitor queue progress
+        start_time = time.time()
+        while document_queue.is_processing:
+            status = document_queue.get_queue_status()
+            print(f"  Processing... Queue size: {status['queue_size']}")
+            await asyncio.sleep(5)
+        
+        end_time = time.time()
+        print(f"Queue processing completed in {end_time - start_time:.1f} seconds")
+        
+        # Verify final coverage
+        final_diagnosis = self.diagnostic.diagnose_coverage_issues(org_id)
+        final_coverage = final_diagnosis['coverage_analysis']['coverage_percentage']
+        
+        print(f"Final coverage after queue processing: {final_coverage}%")
+        
+        return final_coverage >= 90
+
+# CLI test runner
+if __name__ == "__main__":
+    import sys
+    
+    org_id = sys.argv[1] if len(sys.argv) > 1 else "demo-org"
+    
+    tester = TestDocumentCoverage()
+    
+    print("🧪 BoardContinuity Document Coverage Testing")
+    print("=" * 80)
+    
+    # Test 1: Complete processing pipeline
+    pipeline_success = tester.test_complete_processing_pipeline(org_id)
+    
+    # Test 2: Queue processing (if there are still unprocessed docs)
+    # queue_success = asyncio.run(tester.test_queue_processing(org_id))
+    
+    print("\n" + "=" * 80)
+    print("📊 FINAL RESULTS")
+    print("=" * 80)
+    print(f"Pipeline Test: {'✅ PASSED' if pipeline_success else '❌ FAILED'}")
+    # print(f"Queue Test: {'✅ PASSED' if queue_success else '❌ FAILED'}")
+    
+    if pipeline_success:
+        print("\n🎉 SUCCESS: Document processing system is working correctly!")
+        print("   All documents are processed and searchable.")
+        print("   BoardContinuity now has complete institutional memory access.")
+    else:
+        print("\n⚠️  ISSUES DETECTED: Some documents failed to process.")
+        print("   Review the error logs above and run repair functions.")
+        print("   Institutional memory may be incomplete until all docs are processed.")

@@ -781,21 +781,27 @@
             button.textContent = 'Processing...';
             
             try {
-                const response = await fetch('/api/process-all-documents', {
+                // Use new automated processing queue system
+                const response = await fetch('/api/auto-process-documents', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        org_id: ORG_ID,
-                        force_reprocess: false
+                        org_id: ORG_ID
                     })
                 });
                 
                 const result = await response.json();
                 
-                if (result.processing_complete) {
-                    showSuccessMessage(`Processing complete! ${result.results.final_coverage} coverage achieved.`);
-                    // Refresh coverage display
-                    setTimeout(checkDocumentCoverage, 2000);
+                if (result.success && result.processing_started) {
+                    showSuccessMessage(`Started automated processing of ${result.queue_result.added_to_queue} documents`);
+                    
+                    // Start monitoring queue status
+                    monitorQueueProgress();
+                    
+                    // Refresh coverage display periodically
+                    setTimeout(checkDocumentCoverage, 3000);
+                } else if (result.success && result.queue_result.added_to_queue === 0) {
+                    showSuccessMessage('No unprocessed documents found - all documents are already processed!');
                 } else {
                     showErrorMessage('Processing failed: ' + (result.error || 'Unknown error'));
                 }
@@ -805,6 +811,76 @@
             } finally {
                 button.disabled = false;
                 button.textContent = 'Process All Documents';
+            }
+        }
+
+        async function monitorQueueProgress() {
+            let attempts = 0;
+            const maxAttempts = 30; // Monitor for up to 5 minutes
+            
+            const checkProgress = async () => {
+                try {
+                    const response = await fetch(`/api/queue-status`);
+                    const status = await response.json();
+                    
+                    if (status.is_processing && attempts < maxAttempts) {
+                        // Update UI with queue progress
+                        updateQueueProgress(status);
+                        
+                        // Continue monitoring
+                        attempts++;
+                        setTimeout(checkProgress, 10000); // Check every 10 seconds
+                    } else {
+                        // Processing complete, refresh coverage
+                        checkDocumentCoverage();
+                        hideQueueProgress();
+                        
+                        if (status.processing_stats) {
+                            const stats = status.processing_stats;
+                            showSuccessMessage(`Processing complete! Processed: ${stats.total_processed}, Failed: ${stats.total_failed}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Queue monitoring error:', error);
+                }
+            };
+            
+            checkProgress();
+        }
+
+        function updateQueueProgress(status) {
+            const progressDiv = document.getElementById('queue-progress') || createQueueProgressDiv();
+            
+            progressDiv.innerHTML = `
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-medium text-blue-800">Processing Queue</span>
+                        <span class="text-sm text-blue-600">${status.queue_size} remaining</span>
+                    </div>
+                    <div class="text-sm text-blue-700">
+                        ${status.processing_stats ? `Processed: ${status.processing_stats.total_processed} | Failed: ${status.processing_stats.total_failed}` : 'Processing...'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createQueueProgressDiv() {
+            const progressDiv = document.createElement('div');
+            progressDiv.id = 'queue-progress';
+            progressDiv.className = 'mt-3';
+            
+            const coverageDiv = document.getElementById('coverage-display');
+            if (coverageDiv) {
+                coverageDiv.appendChild(progressDiv);
+            }
+            
+            return progressDiv;
+        }
+
+        function hideQueueProgress() {
+            const progressDiv = document.getElementById('queue-progress');
+            if (progressDiv) {
+                progressDiv.remove();
             }
         }
 
