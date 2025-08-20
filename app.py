@@ -74,9 +74,29 @@ def api_query():
         
         # Use auto-scaling RAG system for optimal performance
         from lib.auto_scaling_rag import create_auto_scaling_rag
+        from lib.governance_sessions import create_governance_session_manager
         
         auto_rag = create_auto_scaling_rag()
         response_data = auto_rag.generate_scaled_response(org_id, user_query)
+        
+        # Create persistent session note for institutional memory
+        try:
+            session_manager = create_governance_session_manager()
+            conversation_data = {
+                'queries': [user_query],
+                'responses': [response_data],
+                'timestamp': datetime.now().isoformat()
+            }
+            session = session_manager.create_session_note(org_id, conversation_data)
+            
+            # Add session information to response
+            response_data['session_id'] = session.session_id
+            response_data['session_insights'] = session.key_insights[:3]
+            response_data['institutional_memory'] = True
+            
+        except Exception as e:
+            logger.error(f"Failed to create governance session: {e}")
+            # Continue without session tracking
         
         total_time = int((time.time() - start_time) * 1000)
         

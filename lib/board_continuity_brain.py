@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 
-from lib.enhanced_ingest import enhanced_upsert_document
+from lib.enhanced_ingest import create_enhanced_ingest_pipeline
 from lib.perfect_extraction import extract_perfect_information, validate_extraction_quality
 from lib.institutional_memory import process_document_for_institutional_memory, get_institutional_insights
 from lib.pattern_recognition import analyze_governance_patterns, predict_proposal_outcome
