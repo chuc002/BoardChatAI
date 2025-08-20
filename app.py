@@ -1307,6 +1307,39 @@ def auto_process_documents():
         print(f"Auto process error: {str(e)}")
         return jsonify({'error': 'Auto processing failed', 'details': str(e)}), 500
 
+@app.route('/api/document-coverage-status', methods=['GET'])
+def document_coverage_status():
+    """Get document coverage status for an organization"""
+    
+    try:
+        org_id = request.args.get('org_id', ORG_ID)
+        
+        from lib.bulletproof_processing import DocumentCoverageDiagnostic
+        
+        diagnostic = DocumentCoverageDiagnostic()
+        diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        
+        return jsonify({
+            'ok': True,
+            'coverage_analysis': diagnosis['coverage_analysis'],
+            'processing_issues': diagnosis['processing_issues'][:10]  # Limit to first 10
+        })
+        
+    except Exception as e:
+        print(f'Coverage status error: {str(e)}')
+        return jsonify({
+            'ok': False,
+            'error': 'Coverage status failed', 
+            'details': str(e),
+            'coverage_analysis': {
+                'coverage_percentage': 0,
+                'total_documents': 0,
+                'processed_documents': 0,
+                'unprocessed_documents': 0
+            },
+            'processing_issues': []
+        }), 200  # Return 200 with error structure instead of 500
+
 @app.route('/api/fix-document-coverage', methods=['POST'])
 def fix_document_coverage():
     """One-click fix for document coverage issues"""
