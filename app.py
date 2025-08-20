@@ -53,7 +53,52 @@ def home():
 
 @app.post("/api/query")
 def api_query():
-    """Enhanced API endpoint with enterprise agent integration."""
+    """FastRAG-optimized API endpoint for sub-5 second responses."""
+    import time
+    
+    try:
+        start_time = time.time()
+        
+        data = request.json
+        query = data.get('query', '') if data else ''
+        message = data.get('message', '') if data else ''
+        org_id = data.get('org_id', ORG_ID) if data else ORG_ID
+        
+        # Support both query and message formats
+        user_query = query or message
+        
+        if not user_query:
+            return jsonify({"error": "No query provided"})
+        
+        print(f"FastRAG processing: {user_query[:50]}...")
+        
+        # Use emergency fast response for immediate results
+        from lib.emergency_fast_query import emergency_fast_response
+        
+        response_data = emergency_fast_response(org_id, user_query)
+        
+        total_time = int((time.time() - start_time) * 1000)
+        
+        # Return in consistent format
+        return jsonify({
+            "ok": True,
+            "answer": response_data.get('answer', ''),
+            "response": response_data.get('answer', ''),
+            "sources": response_data.get('sources', []),
+            "confidence": response_data.get('confidence', 0.8),
+            "strategy": response_data.get('strategy', 'emergency_fast'),
+            "response_time_ms": total_time,
+            "enterprise_ready": total_time < 5000,
+            "fast_mode": True
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+# Legacy endpoint for compatibility
+@app.post("/api/query-legacy") 
+def api_query_legacy():
+    """Legacy enterprise agent endpoint."""
     try:
         data = request.json
         query = data.get('query', '') if data else ''
