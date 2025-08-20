@@ -103,6 +103,17 @@ class EnterpriseRAGAgent:
             self.committee_manager = None
             self.committee_agents_enabled = False
         
+        # Initialize human intervention system
+        try:
+            from lib.human_intervention import create_human_intervention_manager
+            self.intervention_manager = create_human_intervention_manager()
+            self.intervention_enabled = True
+            logger.info("Human intervention system initialized for RAG agent")
+        except Exception as e:
+            logger.warning(f"Human intervention initialization failed: {e}")
+            self.intervention_manager = None
+            self.intervention_enabled = False
+        
         self.instructions = BOARDCONTINUITY_AGENT_INSTRUCTIONS
         
         # Tools available to the agent
@@ -150,14 +161,39 @@ class EnterpriseRAGAgent:
                 if not self._passes_guardrails(output_checks):
                     response['response'] = "I need to refine my response to maintain institutional confidentiality standards. Please rephrase your question or contact board administration directly."
                     response['guardrail_flags'] = output_checks
+                    response['guardrails_passed'] = False
+                else:
+                    response['guardrails_passed'] = True
             except Exception as e:
                 logger.warning(f"Output guardrails check failed: {e}")
+                response['guardrails_passed'] = False
+        
+        # Human intervention check
+        if self.intervention_enabled and self.intervention_manager:
+            try:
+                intervention_trigger = self.intervention_manager.should_intervene(query, response)
+                if intervention_trigger:
+                    logger.info(f"Human intervention triggered: {intervention_trigger.value}")
+                    intervention_response = self.intervention_manager.create_intervention_response(
+                        intervention_trigger, query, response
+                    )
+                    # Return intervention response instead of AI response
+                    intervention_response['original_ai_response'] = response
+                    intervention_response['performance'] = {
+                        'response_time_ms': int((time.time() - start_time) * 1000),
+                        'intervention_triggered': True,
+                        'trigger_type': intervention_trigger.value
+                    }
+                    return intervention_response
+            except Exception as e:
+                logger.warning(f"Human intervention check failed: {e}")
         
         # Add performance metadata
         response['performance'] = {
             'response_time_ms': int((time.time() - start_time) * 1000),
             'guardrails_enabled': self.guardrails_enabled,
             'committee_agents_enabled': self.committee_agents_enabled,
+            'intervention_enabled': self.intervention_enabled,
             'routing_decision': routing,
             'agent_type': 'committee_consultation' if routing.get('route') == 'committee_specific' else 'single_agent'
         }

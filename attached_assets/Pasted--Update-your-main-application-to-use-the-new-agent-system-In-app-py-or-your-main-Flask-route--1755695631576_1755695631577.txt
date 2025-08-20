@@ -1,0 +1,91 @@
+# Update your main application to use the new agent system:
+
+# In app.py or your main Flask route:
+
+from lib.perfect_rag import EnterpriseRAGAgent
+from lib.human_intervention import HumanInterventionManager, InterventionTrigger
+
+@app.route('/api/query', methods=['POST'])
+def handle_query_with_agent():
+    """Enhanced query handler with enterprise agent system"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        query = data.get('query')
+        
+        if not org_id or not query:
+            return jsonify({'error': 'Missing org_id or query'}), 400
+        
+        # Initialize agent and intervention manager
+        agent = EnterpriseRAGAgent()
+        intervention_manager = HumanInterventionManager()
+        
+        # Execute agent
+        response_data = agent.run(org_id, query)
+        
+        # Check for human intervention needs
+        intervention_trigger = intervention_manager.should_intervene(query, response_data)
+        
+        if intervention_trigger:
+            # Create intervention response
+            intervention_response = intervention_manager.create_intervention_response(intervention_trigger, query)
+            return jsonify(intervention_response)
+        
+        # Log successful response
+        logger.info(f"Agent response generated: {response_data['performance']['response_time_ms']}ms")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in agent processing: {str(e)}")
+        return jsonify({
+            'error': 'I encountered an issue processing your request. Please try again or contact support.',
+            'agent_error': True
+        }), 500
+
+# Add evaluation endpoint
+@app.route('/api/evaluate-agent', methods=['POST'])
+def evaluate_agent():
+    """Evaluate agent performance for continuous improvement"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        test_queries = data.get('test_queries', [])
+        
+        agent = EnterpriseRAGAgent()
+        results = []
+        
+        for query in test_queries:
+            start_time = time.time()
+            response = agent.run(org_id, query)
+            end_time = time.time()
+            
+            results.append({
+                'query': query,
+                'response_time_ms': int((end_time - start_time) * 1000),
+                'confidence': response.get('confidence', 0),
+                'guardrails_passed': response.get('performance', {}).get('guardrails_passed', False),
+                'agent_type': response.get('performance', {}).get('agent_type', 'unknown')
+            })
+        
+        # Calculate performance metrics
+        avg_response_time = sum(r['response_time_ms'] for r in results) / len(results)
+        avg_confidence = sum(r['confidence'] for r in results) / len(results)
+        guardrail_pass_rate = sum(1 for r in results if r['guardrails_passed']) / len(results)
+        
+        return jsonify({
+            'evaluation_results': results,
+            'performance_summary': {
+                'avg_response_time_ms': avg_response_time,
+                'avg_confidence': avg_confidence,
+                'guardrail_pass_rate': guardrail_pass_rate,
+                'total_queries': len(results),
+                'enterprise_ready': avg_response_time < 3000 and guardrail_pass_rate > 0.95
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in agent evaluation: {str(e)}")
+        return jsonify({'error': 'Evaluation failed'}), 500

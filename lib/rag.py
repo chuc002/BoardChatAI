@@ -3,6 +3,7 @@ from lib.supa import supa, signed_url_for
 from lib.enterprise_guardrails import BoardContinuityGuardrails
 from lib.committee_agents import CommitteeManager
 from lib.enterprise_rag_agent import create_enterprise_rag_agent
+from lib.human_intervention import create_human_intervention_manager
 import os, time, math
 import tiktoken
 import numpy as np
@@ -43,6 +44,16 @@ except Exception as e:
     logger.warning(f"Failed to initialize enterprise RAG agent: {e}")
     enterprise_rag_agent = None
     ENTERPRISE_RAG_ENABLED = False
+
+# Initialize human intervention system
+try:
+    intervention_manager = create_human_intervention_manager()
+    INTERVENTION_ENABLED = True
+    logger.info("Human intervention system initialized successfully")
+except Exception as e:
+    logger.warning(f"Failed to initialize human intervention: {e}")
+    intervention_manager = None
+    INTERVENTION_ENABLED = False
 
 # ==== CONFIG ====
 CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4o-mini")
