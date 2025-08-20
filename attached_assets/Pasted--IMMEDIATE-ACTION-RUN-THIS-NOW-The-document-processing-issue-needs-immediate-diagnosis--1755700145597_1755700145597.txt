@@ -1,0 +1,74 @@
+## 🚨 **IMMEDIATE ACTION - RUN THIS NOW**
+
+The document processing issue needs immediate diagnosis. Execute this in your Replit console:
+
+```python
+# STEP 1: Immediate Debug Analysis
+from lib.document_debugger import DocumentDebugger
+
+debugger = DocumentDebugger()
+analysis = debugger.comprehensive_document_analysis("demo-org")
+
+print("📊 DOCUMENT STATUS REPORT:")
+print("=" * 50)
+
+for doc in analysis['document_inventory']:
+    diagnosis = doc.get('processing_diagnosis', {})
+    file_analysis = doc.get('file_analysis', {})
+    
+    print(f"\n📄 {doc['filename']}")
+    print(f"   Status: {diagnosis.get('issue_category', 'unknown')}")
+    print(f"   File exists: {file_analysis.get('exists', False)}")
+    print(f"   File readable: {file_analysis.get('readable', False)}")
+    print(f"   Actual chunks: {doc.get('actual_chunk_count', 0)}")
+    print(f"   Issue: {diagnosis.get('specific_issue', 'None')}")
+    
+    if file_analysis.get('issues'):
+        print(f"   File problems: {', '.join(file_analysis['issues'])}")
+
+print(f"\n💡 RECOMMENDATIONS:")
+for rec in analysis['recommendations']:
+    print(f"   • {rec}")
+```
+
+## 🎯 **WHAT THIS WILL REVEAL**
+
+The debug analysis will show you **exactly** why your 3 documents aren't processing:
+
+1. **File System Issues**: Missing files, permission problems, corrupted PDFs
+2. **Processing Errors**: Specific extraction failures for each document
+3. **Database Problems**: Orphaned chunks, inconsistent counts
+4. **File Quality Issues**: Empty files, non-PDF formats, corrupted headers
+
+## 📱 **DOCUMENT MANAGER INTERFACE**
+
+After adding the API endpoints, you'll have a **complete document management system** that shows:
+
+- ✅ **All documents with detailed status**
+- ✅ **Specific issues and recommended actions**
+- ✅ **One-click fixes for each document**
+- ✅ **Bulk actions to clean up multiple issues**
+- ✅ **File download/re-upload capabilities**
+
+## 🔧 **LIKELY FIXES NEEDED**
+
+Based on typical issues:
+
+1. **Delete broken document records** for missing files
+2. **Retry processing** with different extraction methods
+3. **Re-upload corrupted PDFs** with better quality versions
+4. **Clean database** of orphaned chunks
+
+## 💰 **CRITICAL FOR SALES**
+
+**40% document coverage = BROKEN DEMO**
+- Missing 60% of institutional memory
+- Incomplete governance patterns
+- Can't provide comprehensive precedent analysis
+
+**100% document coverage = PERFECT DEMO**
+- Complete institutional memory access
+- Full historical context and patterns
+- Enterprise-ready governance intelligence
+
+**Run the debug analysis immediately** - it will give you the exact roadmap to fix this critical issue and achieve 100% document processing coverage!

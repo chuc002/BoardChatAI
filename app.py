@@ -1307,6 +1307,32 @@ def auto_process_documents():
         print(f"Auto process error: {str(e)}")
         return jsonify({'error': 'Auto processing failed', 'details': str(e)}), 500
 
+@app.route('/api/document-debug', methods=['GET'])
+def document_debug():
+    """Get comprehensive document debugging analysis"""
+    
+    try:
+        org_id = request.args.get('org_id', ORG_ID)
+        
+        from lib.document_debugger import create_document_debugger
+        
+        debugger = create_document_debugger()
+        analysis = debugger.comprehensive_document_analysis(org_id)
+        
+        return jsonify({
+            'ok': True,
+            'debug_analysis': analysis,
+            'generated_at': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f'Document debug error: {str(e)}')
+        return jsonify({
+            'ok': False,
+            'error': 'Document debugging failed', 
+            'details': str(e)
+        }), 500
+
 @app.route('/api/document-coverage-status', methods=['GET'])
 def document_coverage_status():
     """Get document coverage status for an organization"""

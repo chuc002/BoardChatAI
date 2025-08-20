@@ -1,0 +1,807 @@
+# Document Processing Debug & Management System
+
+## TASK: Diagnose why document processing is failing and provide complete document management
+
+### STEP 1: Document Diagnosis & Debugging System
+
+```python
+# Create new file: lib/document_debugger.py
+
+import os
+import logging
+import traceback
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+import mimetypes
+
+class DocumentDebugger:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        
+    def comprehensive_document_analysis(self, org_id: str) -> Dict[str, Any]:
+        """Comprehensive analysis of all documents and processing issues"""
+        
+        analysis = {
+            'document_inventory': [],
+            'processing_analysis': {},
+            'file_system_check': {},
+            'database_integrity': {},
+            'error_analysis': [],
+            'recommendations': []
+        }
+        
+        try:
+            # Get complete document inventory from database
+            analysis['document_inventory'] = self._get_complete_document_inventory(org_id)
+            
+            # Analyze each document's processing status
+            analysis['processing_analysis'] = self._analyze_processing_status(analysis['document_inventory'])
+            
+            # Check file system accessibility
+            analysis['file_system_check'] = self._check_file_system_access(analysis['document_inventory'])
+            
+            # Check database integrity
+            analysis['database_integrity'] = self._check_database_integrity(org_id)
+            
+            # Analyze specific errors
+            analysis['error_analysis'] = self._analyze_processing_errors(analysis['document_inventory'])
+            
+            # Generate actionable recommendations
+            analysis['recommendations'] = self._generate_recommendations(analysis)
+            
+        except Exception as e:
+            analysis['critical_error'] = str(e)
+            self.logger.error(f"Document analysis failed: {e}")
+            traceback.print_exc()
+        
+        return analysis
+    
+    def _get_complete_document_inventory(self, org_id: str) -> List[Dict[str, Any]]:
+        """Get complete inventory of all documents"""
+        
+        try:
+            from lib.supabase_client import supa
+            
+            # Get all documents with their processing status and chunk counts
+            query = """
+                SELECT 
+                    d.id,
+                    d.filename,
+                    d.file_path,
+                    d.upload_date,
+                    d.file_size,
+                    d.processing_status,
+                    d.processing_error,
+                    d.processed_at,
+                    d.extraction_method,
+                    d.chunks_count,
+                    COUNT(c.id) as actual_chunk_count,
+                    MAX(c.created_at) as last_chunk_created
+                FROM documents d
+                LEFT JOIN doc_chunks c ON d.id = c.document_id
+                WHERE d.org_id = %s
+                GROUP BY d.id, d.filename, d.file_path, d.upload_date, d.file_size, 
+                         d.processing_status, d.processing_error, d.processed_at, 
+                         d.extraction_method, d.chunks_count
+                ORDER BY d.upload_date DESC
+            """
+            
+            result = supa.rpc('execute_sql', {'query': query, 'params': [org_id]}).execute()
+            documents = result.data if result.data else []
+            
+            # Enhance each document with additional analysis
+            enhanced_docs = []
+            for doc in documents:
+                enhanced_doc = dict(doc)
+                
+                # Add file analysis
+                enhanced_doc['file_analysis'] = self._analyze_single_file(doc)
+                
+                # Add processing diagnosis
+                enhanced_doc['processing_diagnosis'] = self._diagnose_processing_issue(doc)
+                
+                enhanced_docs.append(enhanced_doc)
+            
+            return enhanced_docs
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get document inventory: {e}")
+            return []
+    
+    def _analyze_single_file(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze a single file for processing issues"""
+        
+        file_path = doc.get('file_path', '')
+        filename = doc.get('filename', '')
+        
+        analysis = {
+            'exists': False,
+            'readable': False,
+            'size_bytes': 0,
+            'mime_type': None,
+            'is_pdf': False,
+            'issues': []
+        }
+        
+        try:
+            # Check if file exists
+            if os.path.exists(file_path):
+                analysis['exists'] = True
+                
+                # Check if readable
+                try:
+                    with open(file_path, 'rb') as f:
+                        # Try to read first 1KB
+                        first_kb = f.read(1024)
+                        analysis['readable'] = len(first_kb) > 0
+                        
+                    # Get file size
+                    analysis['size_bytes'] = os.path.getsize(file_path)
+                    
+                    # Check MIME type
+                    mime_type, _ = mimetypes.guess_type(file_path)
+                    analysis['mime_type'] = mime_type
+                    analysis['is_pdf'] = mime_type == 'application/pdf' or filename.lower().endswith('.pdf')
+                    
+                    # Check for potential issues
+                    if analysis['size_bytes'] == 0:
+                        analysis['issues'].append('File is empty (0 bytes)')
+                    elif analysis['size_bytes'] < 1000:
+                        analysis['issues'].append(f'File very small ({analysis["size_bytes"]} bytes)')
+                    elif analysis['size_bytes'] > 50 * 1024 * 1024:  # 50MB
+                        analysis['issues'].append(f'File very large ({analysis["size_bytes"] / 1024 / 1024:.1f}MB)')
+                    
+                    if not analysis['is_pdf']:
+                        analysis['issues'].append(f'Not a PDF file (detected: {mime_type})')
+                    
+                    # Try to detect if it's a corrupted PDF
+                    if analysis['is_pdf']:
+                        if not first_kb.startswith(b'%PDF'):
+                            analysis['issues'].append('PDF header missing - file may be corrupted')
+                    
+                except Exception as e:
+                    analysis['readable'] = False
+                    analysis['issues'].append(f'Cannot read file: {str(e)}')
+            else:
+                analysis['issues'].append(f'File does not exist at path: {file_path}')
+                
+        except Exception as e:
+            analysis['issues'].append(f'File analysis error: {str(e)}')
+        
+        return analysis
+    
+    def _diagnose_processing_issue(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        """Diagnose why a document failed to process"""
+        
+        diagnosis = {
+            'status': doc.get('processing_status', 'unknown'),
+            'issue_category': 'unknown',
+            'specific_issue': None,
+            'recommended_action': None,
+            'can_retry': False
+        }
+        
+        actual_chunks = doc.get('actual_chunk_count', 0)
+        recorded_chunks = doc.get('chunks_count', 0)
+        processing_error = doc.get('processing_error')
+        file_analysis = doc.get('file_analysis', {})
+        
+        # Categorize the issue
+        if not file_analysis.get('exists', False):
+            diagnosis['issue_category'] = 'file_missing'
+            diagnosis['specific_issue'] = 'File not found on disk'
+            diagnosis['recommended_action'] = 'Delete document record or re-upload file'
+            diagnosis['can_retry'] = False
+            
+        elif not file_analysis.get('readable', False):
+            diagnosis['issue_category'] = 'file_unreadable'
+            diagnosis['specific_issue'] = 'File exists but cannot be read'
+            diagnosis['recommended_action'] = 'Check file permissions or re-upload'
+            diagnosis['can_retry'] = False
+            
+        elif file_analysis.get('issues'):
+            diagnosis['issue_category'] = 'file_quality'
+            diagnosis['specific_issue'] = '; '.join(file_analysis['issues'])
+            diagnosis['recommended_action'] = 'Re-upload with better quality file'
+            diagnosis['can_retry'] = True
+            
+        elif processing_error:
+            diagnosis['issue_category'] = 'processing_error'
+            diagnosis['specific_issue'] = processing_error
+            diagnosis['recommended_action'] = 'Retry with different extraction method'
+            diagnosis['can_retry'] = True
+            
+        elif actual_chunks == 0 and diagnosis['status'] != 'failed':
+            diagnosis['issue_category'] = 'never_processed'
+            diagnosis['specific_issue'] = 'Document uploaded but never processed'
+            diagnosis['recommended_action'] = 'Process immediately'
+            diagnosis['can_retry'] = True
+            
+        elif recorded_chunks != actual_chunks:
+            diagnosis['issue_category'] = 'data_inconsistency'
+            diagnosis['specific_issue'] = f'Recorded chunks: {recorded_chunks}, Actual chunks: {actual_chunks}'
+            diagnosis['recommended_action'] = 'Update chunk count or reprocess'
+            diagnosis['can_retry'] = True
+            
+        else:
+            diagnosis['issue_category'] = 'processed_successfully'
+            diagnosis['specific_issue'] = None
+            diagnosis['recommended_action'] = None
+            diagnosis['can_retry'] = False
+        
+        return diagnosis
+    
+    def _check_file_system_access(self, documents: List[Dict]) -> Dict[str, Any]:
+        """Check file system access issues"""
+        
+        check = {
+            'total_files': len(documents),
+            'files_exist': 0,
+            'files_readable': 0,
+            'files_missing': 0,
+            'permission_issues': 0,
+            'path_issues': []
+        }
+        
+        for doc in documents:
+            file_analysis = doc.get('file_analysis', {})
+            
+            if file_analysis.get('exists'):
+                check['files_exist'] += 1
+                
+                if file_analysis.get('readable'):
+                    check['files_readable'] += 1
+                else:
+                    check['permission_issues'] += 1
+            else:
+                check['files_missing'] += 1
+                check['path_issues'].append({
+                    'filename': doc.get('filename'),
+                    'path': doc.get('file_path'),
+                    'issue': 'File not found'
+                })
+        
+        return check
+    
+    def _check_database_integrity(self, org_id: str) -> Dict[str, Any]:
+        """Check database integrity issues"""
+        
+        integrity = {
+            'orphaned_chunks': 0,
+            'documents_without_chunks': 0,
+            'chunk_count_mismatches': 0,
+            'issues': []
+        }
+        
+        try:
+            from lib.supabase_client import supa
+            
+            # Check for orphaned chunks (chunks without documents)
+            orphaned_query = """
+                SELECT COUNT(*) as count
+                FROM doc_chunks c
+                LEFT JOIN documents d ON c.document_id = d.id
+                WHERE d.id IS NULL AND c.org_id = %s
+            """
+            result = supa.rpc('execute_sql', {'query': orphaned_query, 'params': [org_id]}).execute()
+            integrity['orphaned_chunks'] = result.data[0]['count'] if result.data else 0
+            
+            # Check for documents without chunks
+            no_chunks_query = """
+                SELECT COUNT(*) as count
+                FROM documents d
+                LEFT JOIN doc_chunks c ON d.id = c.document_id
+                WHERE c.document_id IS NULL AND d.org_id = %s
+            """
+            result = supa.rpc('execute_sql', {'query': no_chunks_query, 'params': [org_id]}).execute()
+            integrity['documents_without_chunks'] = result.data[0]['count'] if result.data else 0
+            
+        except Exception as e:
+            integrity['issues'].append(f"Database check failed: {str(e)}")
+        
+        return integrity
+    
+    def _analyze_processing_errors(self, documents: List[Dict]) -> List[Dict[str, Any]]:
+        """Analyze processing errors to find patterns"""
+        
+        errors = []
+        error_patterns = {}
+        
+        for doc in documents:
+            diagnosis = doc.get('processing_diagnosis', {})
+            
+            if diagnosis.get('issue_category') != 'processed_successfully':
+                error = {
+                    'filename': doc.get('filename'),
+                    'issue_category': diagnosis.get('issue_category'),
+                    'specific_issue': diagnosis.get('specific_issue'),
+                    'file_size': doc.get('file_analysis', {}).get('size_bytes', 0),
+                    'can_retry': diagnosis.get('can_retry', False)
+                }
+                errors.append(error)
+                
+                # Track error patterns
+                category = diagnosis.get('issue_category', 'unknown')
+                if category not in error_patterns:
+                    error_patterns[category] = 0
+                error_patterns[category] += 1
+        
+        return {
+            'individual_errors': errors,
+            'error_patterns': error_patterns,
+            'total_errors': len(errors)
+        }
+    
+    def _generate_recommendations(self, analysis: Dict[str, Any]) -> List[str]:
+        """Generate actionable recommendations"""
+        
+        recommendations = []
+        
+        # File system issues
+        file_check = analysis.get('file_system_check', {})
+        if file_check.get('files_missing', 0) > 0:
+            recommendations.append(f"🗂️ {file_check['files_missing']} files are missing from disk - delete these document records")
+        
+        if file_check.get('permission_issues', 0) > 0:
+            recommendations.append(f"🔒 {file_check['permission_issues']} files have permission issues - check file access")
+        
+        # Processing issues
+        error_analysis = analysis.get('error_analysis', {})
+        error_patterns = error_analysis.get('error_patterns', {})
+        
+        if 'file_quality' in error_patterns:
+            recommendations.append(f"📄 {error_patterns['file_quality']} files have quality issues - consider re-uploading")
+        
+        if 'never_processed' in error_patterns:
+            recommendations.append(f"⚡ {error_patterns['never_processed']} files need immediate processing")
+        
+        if 'processing_error' in error_patterns:
+            recommendations.append(f"🔧 {error_patterns['processing_error']} files failed processing - retry with different methods")
+        
+        # Database issues
+        db_integrity = analysis.get('database_integrity', {})
+        if db_integrity.get('orphaned_chunks', 0) > 0:
+            recommendations.append(f"🗄️ {db_integrity['orphaned_chunks']} orphaned chunks found - clean up database")
+        
+        return recommendations
+
+# Document Management System
+class DocumentManager:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def get_all_documents_with_management(self, org_id: str) -> Dict[str, Any]:
+        """Get all documents with management capabilities"""
+        
+        debugger = DocumentDebugger()
+        analysis = debugger.comprehensive_document_analysis(org_id)
+        
+        # Add management actions for each document
+        for doc in analysis['document_inventory']:
+            doc['management_actions'] = self._get_management_actions(doc)
+        
+        return {
+            'documents': analysis['document_inventory'],
+            'summary': {
+                'total_documents': len(analysis['document_inventory']),
+                'processed_successfully': len([d for d in analysis['document_inventory'] 
+                                             if d.get('processing_diagnosis', {}).get('issue_category') == 'processed_successfully']),
+                'have_issues': len([d for d in analysis['document_inventory'] 
+                                  if d.get('processing_diagnosis', {}).get('issue_category') != 'processed_successfully']),
+            },
+            'system_analysis': analysis,
+            'bulk_actions': self._get_bulk_actions(analysis)
+        }
+    
+    def _get_management_actions(self, doc: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Get available management actions for a document"""
+        
+        actions = []
+        diagnosis = doc.get('processing_diagnosis', {})
+        file_analysis = doc.get('file_analysis', {})
+        
+        # Always allow deletion
+        actions.append({
+            'action': 'delete',
+            'label': 'Delete Document',
+            'description': 'Remove document and all associated chunks',
+            'icon': '🗑️',
+            'style': 'danger'
+        })
+        
+        # Retry processing if possible
+        if diagnosis.get('can_retry', False):
+            actions.append({
+                'action': 'retry_processing',
+                'label': 'Retry Processing',
+                'description': 'Attempt to process with different extraction methods',
+                'icon': '🔄',
+                'style': 'primary'
+            })
+        
+        # View details
+        actions.append({
+            'action': 'view_details',
+            'label': 'View Details',
+            'description': 'Show detailed processing information',
+            'icon': '🔍',
+            'style': 'info'
+        })
+        
+        # Download if file exists
+        if file_analysis.get('exists', False):
+            actions.append({
+                'action': 'download',
+                'label': 'Download File',
+                'description': 'Download original document',
+                'icon': '📥',
+                'style': 'secondary'
+            })
+        
+        # Re-upload if file is missing or corrupted
+        if not file_analysis.get('exists', False) or file_analysis.get('issues'):
+            actions.append({
+                'action': 'reupload',
+                'label': 'Re-upload',
+                'description': 'Upload a new version of this document',
+                'icon': '📤',
+                'style': 'warning'
+            })
+        
+        return actions
+    
+    def _get_bulk_actions(self, analysis: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Get available bulk actions"""
+        
+        actions = []
+        
+        # Delete all failed documents
+        failed_docs = [d for d in analysis['document_inventory'] 
+                      if d.get('processing_diagnosis', {}).get('issue_category') in ['file_missing', 'file_unreadable']]
+        
+        if failed_docs:
+            actions.append({
+                'action': 'delete_failed',
+                'label': f'Delete {len(failed_docs)} Failed Documents',
+                'description': 'Remove all documents that cannot be processed',
+                'icon': '🗑️',
+                'style': 'danger'
+            })
+        
+        # Retry all retryable documents
+        retryable_docs = [d for d in analysis['document_inventory'] 
+                         if d.get('processing_diagnosis', {}).get('can_retry', False)]
+        
+        if retryable_docs:
+            actions.append({
+                'action': 'retry_all',
+                'label': f'Retry {len(retryable_docs)} Documents',
+                'description': 'Retry processing for all documents that can be retried',
+                'icon': '🔄',
+                'style': 'primary'
+            })
+        
+        # Clean up database
+        db_issues = analysis.get('database_integrity', {})
+        if db_issues.get('orphaned_chunks', 0) > 0:
+            actions.append({
+                'action': 'cleanup_database',
+                'label': 'Clean Database',
+                'description': 'Remove orphaned chunks and fix inconsistencies',
+                'icon': '🧹',
+                'style': 'warning'
+            })
+        
+        return actions
+    
+    def execute_document_action(self, org_id: str, document_id: str, action: str) -> Dict[str, Any]:
+        """Execute a management action on a document"""
+        
+        try:
+            if action == 'delete':
+                return self._delete_document(org_id, document_id)
+            elif action == 'retry_processing':
+                return self._retry_processing(org_id, document_id)
+            elif action == 'view_details':
+                return self._get_document_details(org_id, document_id)
+            elif action == 'download':
+                return self._download_document(org_id, document_id)
+            else:
+                return {'success': False, 'error': f'Unknown action: {action}'}
+                
+        except Exception as e:
+            self.logger.error(f"Action {action} failed for document {document_id}: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _delete_document(self, org_id: str, document_id: str) -> Dict[str, Any]:
+        """Delete a document and all associated chunks"""
+        
+        try:
+            from lib.supabase_client import supa
+            
+            # Delete chunks first (foreign key constraint)
+            chunks_result = supa.table('doc_chunks').delete().eq('document_id', document_id).execute()
+            chunks_deleted = len(chunks_result.data) if chunks_result.data else 0
+            
+            # Delete document record
+            doc_result = supa.table('documents').delete().eq('id', document_id).eq('org_id', org_id).execute()
+            
+            if doc_result.data:
+                return {
+                    'success': True,
+                    'message': f'Document deleted successfully',
+                    'chunks_deleted': chunks_deleted
+                }
+            else:
+                return {'success': False, 'error': 'Document not found'}
+                
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def _retry_processing(self, org_id: str, document_id: str) -> Dict[str, Any]:
+        """Retry processing a document"""
+        
+        try:
+            from lib.bulletproof_processing import BulletproofDocumentProcessor
+            from lib.supabase_client import supa
+            
+            # Get document info
+            doc_result = supa.table('documents').select('*').eq('id', document_id).eq('org_id', org_id).execute()
+            
+            if not doc_result.data:
+                return {'success': False, 'error': 'Document not found'}
+            
+            doc = doc_result.data[0]
+            
+            # Delete existing chunks
+            supa.table('doc_chunks').delete().eq('document_id', document_id).execute()
+            
+            # Reset processing status
+            supa.table('documents').update({
+                'processing_status': 'pending',
+                'processing_error': None,
+                'chunks_count': 0
+            }).eq('id', document_id).execute()
+            
+            # Retry processing
+            processor = BulletproofDocumentProcessor()
+            result = processor._process_single_document_bulletproof(org_id, doc)
+            
+            return {
+                'success': result['success'],
+                'message': f'Processing {"succeeded" if result["success"] else "failed"}',
+                'details': result
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def execute_bulk_action(self, org_id: str, action: str) -> Dict[str, Any]:
+        """Execute a bulk management action"""
+        
+        try:
+            if action == 'delete_failed':
+                return self._delete_failed_documents(org_id)
+            elif action == 'retry_all':
+                return self._retry_all_documents(org_id)
+            elif action == 'cleanup_database':
+                return self._cleanup_database(org_id)
+            else:
+                return {'success': False, 'error': f'Unknown bulk action: {action}'}
+                
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def _delete_failed_documents(self, org_id: str) -> Dict[str, Any]:
+        """Delete all documents that cannot be processed"""
+        
+        try:
+            # Get analysis to identify failed documents
+            debugger = DocumentDebugger()
+            analysis = debugger.comprehensive_document_analysis(org_id)
+            
+            failed_docs = [d for d in analysis['document_inventory'] 
+                          if d.get('processing_diagnosis', {}).get('issue_category') in ['file_missing', 'file_unreadable']]
+            
+            deleted_count = 0
+            errors = []
+            
+            for doc in failed_docs:
+                result = self._delete_document(org_id, doc['id'])
+                if result['success']:
+                    deleted_count += 1
+                else:
+                    errors.append(f"{doc['filename']}: {result['error']}")
+            
+            return {
+                'success': len(errors) == 0,
+                'deleted_count': deleted_count,
+                'total_attempted': len(failed_docs),
+                'errors': errors
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+```
+
+### STEP 2: Document Management API Endpoints
+
+```python
+# Add these endpoints to your app.py:
+
+@app.route('/api/document-management', methods=['GET'])
+def get_document_management():
+    """Get complete document management interface"""
+    
+    try:
+        org_id = request.args.get('org_id')
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        manager = DocumentManager()
+        result = manager.get_all_documents_with_management(org_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Document management error: {str(e)}")
+        return jsonify({'error': 'Failed to get document management data'}), 500
+
+@app.route('/api/document-action', methods=['POST'])
+def execute_document_action():
+    """Execute action on a specific document"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        document_id = data.get('document_id')
+        action = data.get('action')
+        
+        if not all([org_id, document_id, action]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        manager = DocumentManager()
+        result = manager.execute_document_action(org_id, document_id, action)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Document action error: {str(e)}")
+        return jsonify({'error': 'Action failed'}), 500
+
+@app.route('/api/bulk-document-action', methods=['POST'])
+def execute_bulk_document_action():
+    """Execute bulk action on multiple documents"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        action = data.get('action')
+        
+        if not all([org_id, action]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        manager = DocumentManager()
+        result = manager.execute_bulk_action(org_id, action)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Bulk action error: {str(e)}")
+        return jsonify({'error': 'Bulk action failed'}), 500
+
+@app.route('/api/debug-documents', methods=['GET'])
+def debug_documents():
+    """Get detailed debug information about document processing"""
+    
+    try:
+        org_id = request.args.get('org_id')
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        debugger = DocumentDebugger()
+        analysis = debugger.comprehensive_document_analysis(org_id)
+        
+        return jsonify(analysis)
+        
+    except Exception as e:
+        logger.error(f"Document debug error: {str(e)}")
+        return jsonify({'error': 'Debug analysis failed'}), 500
+```
+
+### STEP 3: Document Management Interface
+
+```javascript
+// Add this comprehensive document management interface to your HTML:
+
+async function showDocumentManager() {
+    try {
+        const response = await fetch(`/api/document-management?org_id=${ORG_ID}`);
+        const data = await response.json();
+        
+        createDocumentManagerModal(data);
+        
+    } catch (error) {
+        console.error('Failed to load document manager:', error);
+        showErrorMessage('Failed to load document manager');
+    }
+}
+
+function createDocumentManagerModal(data) {
+    const modal = document.createElement('div');
+    modal.className = 'document-manager-modal';
+    modal.innerHTML = `
+        <div class="modal-backdrop" onclick="closeDocumentManager()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📁 Document Management & Debug Center</h2>
+                <button onclick="closeDocumentManager()" class="close-btn">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Summary Section -->
+                <div class="summary-section">
+                    <h3>📊 Summary</h3>
+                    <div class="summary-stats">
+                        <div class="stat-card">
+                            <span class="stat-number">${data.summary.total_documents}</span>
+                            <span class="stat-label">Total Documents</span>
+                        </div>
+                        <div class="stat-card success">
+                            <span class="stat-number">${data.summary.processed_successfully}</span>
+                            <span class="stat-label">Processed Successfully</span>
+                        </div>
+                        <div class="stat-card error">
+                            <span class="stat-number">${data.summary.have_issues}</span>
+                            <span class="stat-label">Have Issues</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recommendations Section -->
+                ${data.system_analysis.recommendations.length > 0 ? `
+                    <div class="recommendations-section">
+                        <h3>💡 Recommendations</h3>
+                        <ul class="recommendations-list">
+                            ${data.system_analysis.recommendations.map(rec => `
+                                <li>${rec}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                <!-- Bulk Actions Section -->
+                ${data.bulk_actions.length > 0 ? `
+                    <div class="bulk-actions-section">
+                        <h3>🔧 Bulk Actions</h3>
+                        <div class="bulk-actions">
+                            ${data.bulk_actions.map(action => `
+                                <button 
+                                    onclick="executeBulkAction('${action.action}')" 
+                                    class="bulk-action-btn ${action.style}"
+                                    title="${action.description}"
+                                >
+                                    ${action.icon} ${action.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Documents List -->
+                <div class="documents-section">
+                    <h3>📄 All Documents</h3>
+                    <div class="documents-list">
+                        ${data.documents.map(doc => createDocumentCard(doc)).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add styles
+    const styles = `
+        <style>
+        .document-manager-modal {
+            position: fixed;
+            top: 0;
