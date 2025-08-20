@@ -1,5 +1,6 @@
 from openai import OpenAI
 from lib.supa import supa, signed_url_for
+from lib.enterprise_guardrails import BoardContinuityGuardrails
 import os, time, math
 import tiktoken
 import numpy as np
@@ -10,6 +11,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 client = OpenAI()
+
+# Initialize enterprise guardrails
+try:
+    guardrails = BoardContinuityGuardrails()
+    GUARDRAILS_ENABLED = True
+    logger.info("Enterprise guardrails initialized successfully")
+except Exception as e:
+    logger.warning(f"Failed to initialize guardrails: {e}")
+    guardrails = None
+    GUARDRAILS_ENABLED = False
 
 # ==== CONFIG ====
 CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4o-mini")
@@ -351,6 +362,13 @@ def _mmr(query_emb, rows, row_embs, k: int, lam: float):
 
 # ---------- Main ----------
 def answer_question_md(org_id: str, question: str, chat_model: str | None = None):
+    # Input validation with enterprise guardrails
+    if GUARDRAILS_ENABLED and guardrails:
+        input_safe, safety_reason = guardrails.evaluate_input_safety(question)
+        if not input_safe:
+            logger.warning(f"Input blocked by guardrails: {safety_reason}")
+            return "I apologize, but I cannot process this request as it doesn't align with board governance topics. Please ask questions related to institutional decisions, policies, or governance matters.", []
+    
     # 1) retrieve (vector + keyword fallback)
     v_rows, q_emb = _vector(org_id, question, k=MAX_CANDIDATES)
     rows = v_rows
@@ -515,6 +533,14 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
             messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],
             max_tokens=600
         ).choices[0].message.content)
+    
+    # Output validation with enterprise guardrails
+    if GUARDRAILS_ENABLED and guardrails:
+        output_safe, quality_reason = guardrails.evaluate_output_quality(answer)
+        if not output_safe:
+            logger.warning(f"Output blocked by guardrails: {quality_reason}")
+            # Return a safe fallback response
+            answer = "I apologize, but I need to refine my response to maintain institutional confidentiality standards. Please rephrase your question or contact board administration directly for sensitive information."
 
     # Return consistent dictionary format instead of tuple
     return {
