@@ -1,0 +1,30 @@
+2025-08-20 19:17:52,067 - lib.processing_queue - ERROR - worker-1 exception processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:17:52,068 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:17:52,068 - lib.processing_queue - WARNING - Processing already running
+Processing status: {'status': 'running', 'queue_size': 0, 'processed': 0, 'failed': 6, 'in_progress': 0, 'workers': 3}
+Processing completed
+2025-08-20 19:17:52,145 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:17:57,452 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Ccreated_at%2Ctitle%2Cstatus&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:17:57,550 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:18:02,360 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Cstorage_path%2Ccreated_at%2Ctitle&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:18:02,450 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:18:02,451 - lib.processing_queue - INFO - Added 3 documents to processing queue
+2025-08-20 19:18:02,451 - lib.processing_queue - INFO - worker-0 processing Meeting Book - IHCC Board of Governors May Meeting.pdf
+2025-08-20 19:18:02,451 - lib.processing_queue - INFO - worker-1 processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf
+2025-08-20 19:18:02,451 - lib.processing_queue - INFO - worker-2 processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf
+2025-08-20 19:18:02,451 - lib.processing_queue - INFO - Added 3 documents to processing queue
+Auto process error: An asyncio.Future, a coroutine or an awaitable is required
+2025-08-20 19:18:02,451 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors May Meeting.pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:18:02,451 - lib.processing_queue - ERROR - worker-1 exception processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:18:02,451 - lib.processing_queue - ERROR - worker-2 exception processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:18:10,119 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Cstorage_path%2Ccreated_at%2Ctitle&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:18:10,286 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:18:10,287 - lib.processing_queue - INFO - Added 3 documents to processing queue
+2025-08-20 19:18:10,287 - lib.processing_queue - INFO - worker-0 processing Meeting Book - IHCC Board of Governors May Meeting.pdf
+2025-08-20 19:18:10,287 - lib.processing_queue - INFO - worker-1 processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf
+2025-08-20 19:18:10,287 - lib.processing_queue - INFO - worker-2 processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf
+2025-08-20 19:18:10,287 - lib.processing_queue - INFO - Added 3 documents to processing queue
+Auto process error: An asyncio.Future, a coroutine or an awaitable is required
+2025-08-20 19:18:10,287 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors May Meeting.pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:18:10,288 - lib.processing_queue - ERROR - worker-1 exception processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'
+2025-08-20 19:18:10,288 - lib.processing_queue - ERROR - worker-2 exception processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf: 'BulletproofDocumentProcessor' object has no attribute '_process_single_document_bulletproof'

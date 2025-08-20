@@ -134,18 +134,45 @@ class ProcessingQueue:
             
             self.logger.info(f"{worker_name} processing {filename}")
             
-            # Use bulletproof processing system
-            from lib.bulletproof_processing import create_bulletproof_processor
+            # Use enhanced ingestion for document processing
+            from lib.enhanced_ingest import enhanced_upsert_document
+            from lib.supa import supa
             
-            processor = create_bulletproof_processor()
-            result = processor._process_single_document_bulletproof("63602dc6-defe-4355-b66c-aa6b3b1273e3", doc)
+            # Download document content
+            doc_data = supa.table("documents").select("storage_path").eq("id", doc_id).execute()
+            if not doc_data.data:
+                self.logger.error(f"{worker_name} document not found: {doc_id}")
+                return False
             
-            if result and result.get('success'):
-                self.logger.info(f"{worker_name} successfully processed {filename}")
-                return True
+            storage_path = doc_data.data[0].get('storage_path')
+            if not storage_path:
+                self.logger.error(f"{worker_name} no storage path for document: {filename}")
+                return False
+            
+            # Get signed URL and download
+            from lib.supa import signed_url_for
+            import requests
+            
+            file_url = signed_url_for(storage_path, expires_in=300)
+            response = requests.get(file_url, timeout=30)
+            
+            if response.status_code == 200:
+                # Process with enhanced ingestion
+                org_id = "63602dc6-defe-4355-b66c-aa6b3b1273e3"
+                user_id = "dev-user-123"
+                
+                doc_result, chunks_created = enhanced_upsert_document(
+                    org_id, user_id, filename, response.content, "application/pdf"
+                )
+                
+                if chunks_created > 0:
+                    self.logger.info(f"{worker_name} successfully processed {filename}: {chunks_created} chunks")
+                    return True
+                else:
+                    self.logger.error(f"{worker_name} no chunks created for {filename}")
+                    return False
             else:
-                error_msg = result.get('error', 'Unknown error') if result else 'No result'
-                self.logger.error(f"{worker_name} failed to process {filename}: {error_msg}")
+                self.logger.error(f"{worker_name} failed to download {filename}: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
