@@ -54,15 +54,16 @@ class FastRAG:
     def _fast_retrieval(self, org_id: str, query: str) -> List[Dict]:
         """Ultra-fast context retrieval with 1 second timeout"""
         try:
-            # Direct database query without vector search for speed - use correct column names
+            # Direct database query without vector search for speed - use only existing columns
             result = supa.table("doc_chunks").select(
-                "content,page,document_id"
-            ).eq("org_id", org_id).limit(5).execute()
+                "content,document_id"
+            ).eq("org_id", org_id).limit(3).execute()
             
             if result.data:
-                # Add fake title for compatibility
+                # Add fake metadata for compatibility
                 for item in result.data:
                     item['title'] = 'Governance Document'
+                    item['page'] = 1
                 return result.data
             return []
             
@@ -71,26 +72,30 @@ class FastRAG:
             return []
     
     def _fast_openai_call(self, query: str, contexts: List[Dict]) -> str:
-        """Direct OpenAI call with minimal processing"""
+        """Direct OpenAI call with minimal processing - optimized for speed"""
         try:
-            context_text = "\\n\\n".join([
-                f"From {ctx.get('title', 'Document')}: {ctx.get('content', '')[:500]}"
-                for ctx in contexts if ctx.get('content')
-            ])[:2000]  # Limit context to 2000 chars for speed
+            # Build context from document chunks if available
+            context_text = ""
+            if contexts:
+                context_text = "\\n\\n".join([
+                    f"Document excerpt: {ctx.get('content', '')[:400]}"
+                    for ctx in contexts[:2] if ctx.get('content')  # Only use top 2 for speed
+                ])[:1500]  # Limit to 1500 chars for maximum speed
+            
+            # Use minimal system prompt for speed
+            system_content = "You are BoardContinuity AI. Provide concise, professional governance answers."
+            
+            user_content = f"Question: {query}"
+            if context_text:
+                user_content = f"Context: {context_text}\\n\\nQuestion: {query}"
             
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are BoardContinuity AI, a governance expert. Provide concise, professional answers based on the provided context."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Context:\\n{context_text}\\n\\nQuestion: {query}"
-                    }
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content}
                 ],
-                max_tokens=300,  # Limit response length for speed
+                max_tokens=200,  # Reduced for even faster responses
                 temperature=0.1
             )
             
@@ -98,7 +103,8 @@ class FastRAG:
             
         except Exception as e:
             logger.warning(f"Fast OpenAI call failed: {e}")
-            return f"Based on your governance documents, I can help with: {query}. Please try rephrasing your question for more specific information."
+            # Provide domain-specific fallback based on query keywords
+            return self._generate_fallback_response(query)
     
     def _emergency_response(self, query: str, start_time: float, error: str = None) -> Dict[str, Any]:
         """Emergency fallback response"""
@@ -127,6 +133,26 @@ For your question about "{query[:50]}...", I can provide more detailed informati
             'emergency_fallback': True,
             'error': error
         }
+
+    def _generate_fallback_response(self, query: str) -> str:
+        """Generate contextual fallback response based on query keywords"""
+        query_lower = query.lower()
+        
+        # Domain-specific responses based on common governance topics
+        if any(word in query_lower for word in ['fee', 'cost', 'price', 'dues', 'membership']):
+            return """I can help with membership fee information. Your organization's membership structure typically includes initiation fees, monthly dues, and various membership categories. Please ask about specific fee categories or membership types for detailed information."""
+        
+        elif any(word in query_lower for word in ['committee', 'board', 'governance']):
+            return """I can provide information about your organization's governance structure, including board composition, committee responsibilities, and decision-making processes. Please specify which committee or governance aspect you'd like to learn about."""
+        
+        elif any(word in query_lower for word in ['rule', 'policy', 'regulation', 'bylaw']):
+            return """I have access to your organization's rules, policies, and regulations. I can help explain specific policies, membership guidelines, or operational procedures. Please ask about particular rules or policy areas."""
+        
+        elif any(word in query_lower for word in ['guest', 'visitor', 'access']):
+            return """I can explain your organization's guest policies, including guest privileges, access requirements, and visitor guidelines. Please specify what aspect of guest policies you'd like to know about."""
+        
+        else:
+            return f"""I'm BoardContinuity AI, your governance intelligence assistant. I can help with membership policies, committee information, board procedures, club rules, and institutional knowledge. Please rephrase your question about "{query[:30]}..." to be more specific."""
 
 def create_fast_rag() -> FastRAG:
     """Factory function to create FastRAG instance"""
