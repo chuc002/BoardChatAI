@@ -992,8 +992,8 @@ def agent_status():
             'guardrails_enabled': agent.guardrails_enabled,
             'committee_agents_enabled': agent.committee_agents_enabled,
             'intervention_enabled': agent.intervention_enabled,
-            'available_tools': len(agent.tools),
-            'intervention_triggers': len(list(intervention_manager.get_intervention_statistics()['intervention_triggers']))
+            'monitoring_enabled': agent.monitoring_enabled,
+            'available_tools': len(agent.tools)
         }
         
         # Test basic functionality
@@ -1001,6 +1001,9 @@ def agent_status():
         test_start = time.time()
         test_response = agent.run(ORG_ID, test_query)
         test_duration = int((time.time() - test_start) * 1000)
+        
+        # Get comprehensive system status including monitoring data
+        system_status = agent.get_system_status()
         
         return jsonify({
             'ok': True,
@@ -1016,7 +1019,8 @@ def agent_status():
             'system_health': {
                 'enterprise_ready': all(capabilities.values()),
                 'response_performance': 'excellent' if test_duration < 2000 else 'good' if test_duration < 4000 else 'needs_optimization'
-            }
+            },
+            'detailed_status': system_status
         })
         
     except Exception as e:
@@ -1024,6 +1028,36 @@ def agent_status():
             'ok': False,
             'status': 'error',
             'error': str(e)
+        }), 500
+
+@app.get("/api/performance-report")
+def performance_report():
+    """Get detailed performance monitoring report"""
+    try:
+        hours = int(request.args.get('hours', 24))
+        
+        from lib.enterprise_rag_agent import create_enterprise_rag_agent
+        agent = create_enterprise_rag_agent()
+        
+        if not agent.monitoring_enabled or not agent.performance_monitor:
+            return jsonify({
+                'ok': False,
+                'error': 'Performance monitoring not available'
+            }), 404
+        
+        performance_summary = agent.performance_monitor.get_performance_summary(hours)
+        
+        return jsonify({
+            'ok': True,
+            'performance_report': performance_summary,
+            'report_generated': datetime.now().isoformat(),
+            'time_period_hours': hours
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Performance report failed: {str(e)}'
         }), 500
 
 if __name__ == "__main__":

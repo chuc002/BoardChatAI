@@ -114,6 +114,17 @@ class EnterpriseRAGAgent:
             self.intervention_manager = None
             self.intervention_enabled = False
         
+        # Initialize performance monitoring
+        try:
+            from lib.agent_monitoring import create_agent_performance_monitor
+            self.performance_monitor = create_agent_performance_monitor()
+            self.monitoring_enabled = True
+            logger.info("Performance monitoring initialized for RAG agent")
+        except Exception as e:
+            logger.warning(f"Performance monitoring initialization failed: {e}")
+            self.performance_monitor = None
+            self.monitoring_enabled = False
+        
         self.instructions = BOARDCONTINUITY_AGENT_INSTRUCTIONS
         
         # Tools available to the agent
@@ -194,9 +205,24 @@ class EnterpriseRAGAgent:
             'guardrails_enabled': self.guardrails_enabled,
             'committee_agents_enabled': self.committee_agents_enabled,
             'intervention_enabled': self.intervention_enabled,
+            'monitoring_enabled': self.monitoring_enabled,
             'routing_decision': routing,
             'agent_type': 'committee_consultation' if routing.get('route') == 'committee_specific' else 'single_agent'
         }
+        
+        # Log interaction for performance monitoring
+        if self.monitoring_enabled and self.performance_monitor:
+            try:
+                self.performance_monitor.log_interaction({
+                    'response_time_ms': response['performance']['response_time_ms'],
+                    'confidence': response.get('confidence', 0),
+                    'guardrails_passed': response.get('guardrails_passed', True),
+                    'agent_type': response['performance']['agent_type'],
+                    'intervention_triggered': response.get('intervention_triggered', False),
+                    'trigger_type': response.get('trigger_type', None)
+                })
+            except Exception as e:
+                logger.warning(f"Performance monitoring logging failed: {e}")
         
         return response
     
@@ -359,6 +385,27 @@ class EnterpriseRAGAgent:
     def _predict_outcomes(self, proposal: str) -> Dict[str, Any]:
         """Predict outcomes based on historical patterns"""
         return {"status": "not_implemented", "message": "Outcome prediction integration pending"}
+    
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get comprehensive system status"""
+        status = {
+            'guardrails_enabled': self.guardrails_enabled,
+            'committee_agents_enabled': self.committee_agents_enabled,
+            'intervention_enabled': self.intervention_enabled,
+            'monitoring_enabled': self.monitoring_enabled,
+            'total_tools': len(self.tools)
+        }
+        
+        # Add performance monitoring data if available
+        if self.monitoring_enabled and self.performance_monitor:
+            try:
+                performance_summary = self.performance_monitor.get_performance_summary()
+                status['performance_monitoring'] = performance_summary
+            except Exception as e:
+                logger.warning(f"Failed to get performance summary: {e}")
+                status['performance_monitoring'] = {'error': str(e)}
+        
+        return status
 
 # Factory function for easy integration
 def create_enterprise_rag_agent() -> EnterpriseRAGAgent:
