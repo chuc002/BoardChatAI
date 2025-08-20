@@ -1,0 +1,127 @@
+# Create new file: lib/human_intervention.py
+
+from typing import Dict, Any, Optional
+from enum import Enum
+
+class InterventionTrigger(Enum):
+    HIGH_RISK_ACTION = "high_risk_action"
+    LOW_CONFIDENCE = "low_confidence"
+    GUARDRAIL_FAILURE = "guardrail_failure"
+    COMPLEX_EDGE_CASE = "complex_edge_case"
+    USER_REQUEST = "user_request"
+
+class HumanInterventionManager:
+    def __init__(self):
+        self.high_risk_keywords = [
+            'terminate', 'fire', 'dismiss', 'legal action', 'lawsuit',
+            'emergency fund', 'large expenditure', 'major contract',
+            'membership termination', 'bylaw change'
+        ]
+        
+        self.intervention_thresholds = {
+            'confidence_threshold': 0.6,
+            'financial_threshold': 50000,  # $50K+ decisions
+            'risk_score_threshold': 0.8
+        }
+    
+    def should_intervene(self, query: str, response_data: Dict[str, Any]) -> Optional[InterventionTrigger]:
+        """Determine if human intervention is needed"""
+        
+        # Check for high-risk actions
+        if self._is_high_risk_action(query):
+            return InterventionTrigger.HIGH_RISK_ACTION
+        
+        # Check confidence levels
+        confidence = response_data.get('confidence', 1.0)
+        if confidence < self.intervention_thresholds['confidence_threshold']:
+            return InterventionTrigger.LOW_CONFIDENCE
+        
+        # Check for guardrail failures
+        if not response_data.get('guardrails_passed', True):
+            return InterventionTrigger.GUARDRAIL_FAILURE
+        
+        # Check for financial thresholds
+        if self._involves_large_financial_decision(query):
+            return InterventionTrigger.HIGH_RISK_ACTION
+        
+        # Check for explicit user requests for human help
+        if self._user_requests_human(query):
+            return InterventionTrigger.USER_REQUEST
+        
+        return None
+    
+    def _is_high_risk_action(self, query: str) -> bool:
+        """Check if query involves high-risk actions"""
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in self.high_risk_keywords)
+    
+    def _involves_large_financial_decision(self, query: str) -> bool:
+        """Check if query involves large financial decisions"""
+        import re
+        
+        # Look for dollar amounts
+        amounts = re.findall(r'\$([0-9,]+)', query)
+        for amount in amounts:
+            try:
+                value = int(amount.replace(',', ''))
+                if value >= self.intervention_thresholds['financial_threshold']:
+                    return True
+            except ValueError:
+                continue
+        
+        # Look for keywords indicating large decisions
+        large_decision_keywords = [
+            'major renovation', 'capital project', 'large contract',
+            'significant expenditure', 'major investment'
+        ]
+        
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in large_decision_keywords)
+    
+    def _user_requests_human(self, query: str) -> bool:
+        """Check if user explicitly requests human assistance"""
+        human_request_patterns = [
+            'speak to human', 'human help', 'escalate',
+            'transfer to person', 'real person', 'not ai'
+        ]
+        
+        query_lower = query.lower()
+        return any(pattern in query_lower for pattern in human_request_patterns)
+    
+    def create_intervention_response(self, trigger: InterventionTrigger, query: str) -> Dict[str, Any]:
+        """Create appropriate intervention response"""
+        
+        intervention_messages = {
+            InterventionTrigger.HIGH_RISK_ACTION: {
+                'message': "This request involves a high-risk decision that requires human oversight. I'm connecting you with a board governance specialist who can provide personalized guidance.",
+                'next_steps': "Please wait while we connect you with a qualified professional."
+            },
+            InterventionTrigger.LOW_CONFIDENCE: {
+                'message': "I want to ensure you receive the most accurate guidance for this complex situation. Let me connect you with a governance expert who can provide detailed assistance.",
+                'next_steps': "A specialist will review your question and provide comprehensive guidance."
+            },
+            InterventionTrigger.GUARDRAIL_FAILURE: {
+                'message': "I need to review this request to ensure I provide appropriate guidance. Please allow me to connect you with a human specialist.",
+                'next_steps': "Your request will be reviewed by a qualified professional."
+            },
+            InterventionTrigger.COMPLEX_EDGE_CASE: {
+                'message': "This situation involves unique circumstances that would benefit from human expertise. I'm connecting you with a governance specialist.",
+                'next_steps': "A specialist will analyze your specific situation and provide tailored guidance."
+            },
+            InterventionTrigger.USER_REQUEST: {
+                'message': "I understand you'd prefer to speak with a human. I'm connecting you with a qualified board governance specialist.",
+                'next_steps': "Please hold while we connect you with a professional."
+            }
+        }
+        
+        intervention_info = intervention_messages[trigger]
+        
+        return {
+            'response': intervention_info['message'],
+            'intervention_triggered': True,
+            'trigger_type': trigger.value,
+            'next_steps': intervention_info['next_steps'],
+            'escalation_reason': trigger.value,
+            'original_query': query,
+            'human_assistance_required': True
+        }
