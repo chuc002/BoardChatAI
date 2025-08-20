@@ -51,7 +51,7 @@ def home():
 
 @app.post("/api/query")
 def api_query():
-    """Enhanced API endpoint for the new frontend interface."""
+    """Enhanced API endpoint with enterprise agent integration."""
     try:
         data = request.json
         query = data.get('query', '') if data else ''
@@ -60,31 +60,73 @@ def api_query():
         if not query:
             return jsonify({"error": "No query provided"})
         
-        # Use the existing RAG system
-        from lib.rag import answer_question_md
-        
-        result = answer_question_md(org_id, query)
-        
-        # Handle both tuple and dict returns for backward compatibility
-        if isinstance(result, tuple):
-            answer, sources = result
-            response_data = {
-                'answer': answer,
-                'sources': sources,
-                'processing_time_ms': 0
-            }
-        else:
-            response_data = result
-        
-        return jsonify({
-            "ok": True,
-            "response": response_data.get('answer', 'I could not find relevant information for your query.'),
-            "sources": response_data.get('sources', []),
-            "performance": {
-                "response_time_ms": response_data.get('processing_time_ms', 0),
-                "contexts_found": len(response_data.get('sources', []))
-            }
-        })
+        # Use enterprise agent system if available, otherwise fallback to basic RAG
+        try:
+            from lib.enterprise_rag_agent import create_enterprise_rag_agent_with_monitoring
+            from lib.human_intervention import create_human_intervention_manager
+            
+            agent = create_enterprise_rag_agent_with_monitoring()
+            intervention_manager = create_human_intervention_manager()
+            
+            # Execute enterprise agent
+            response_data = agent.run(org_id, query)
+            
+            # Check for human intervention needs
+            intervention_trigger = intervention_manager.should_intervene(query, response_data)
+            
+            if intervention_trigger:
+                intervention_response = intervention_manager.create_intervention_response(intervention_trigger, query, response_data)
+                return jsonify({
+                    "ok": True,
+                    "intervention_required": True,
+                    "response": intervention_response.get('response'),
+                    "escalation_info": {
+                        "trigger_type": intervention_trigger.value,
+                        "next_steps": intervention_response.get('next_steps'),
+                        "specialist_type": intervention_response.get('specialist_type')
+                    }
+                })
+            
+            # Return enhanced enterprise response
+            return jsonify({
+                "ok": True,
+                "response": response_data.get('response', 'I could not find relevant information for your query.'),
+                "sources": response_data.get('sources', []),
+                "enterprise_features": {
+                    "strategy": response_data.get('strategy'),
+                    "confidence": response_data.get('confidence'),
+                    "committees_consulted": response_data.get('committees_consulted', []),
+                    "enterprise_enhanced": response_data.get('enterprise_enhanced', True)
+                },
+                "performance": response_data.get('performance', {})
+            })
+            
+        except ImportError:
+            # Fallback to basic RAG system
+            from lib.rag import answer_question_md
+            
+            result = answer_question_md(org_id, query)
+            
+            # Handle both tuple and dict returns for backward compatibility
+            if isinstance(result, tuple):
+                answer, sources = result
+                response_data = {
+                    'answer': answer,
+                    'sources': sources,
+                    'processing_time_ms': 0
+                }
+            else:
+                response_data = result
+            
+            return jsonify({
+                "ok": True,
+                "response": response_data.get('answer', 'I could not find relevant information for your query.'),
+                "sources": response_data.get('sources', []),
+                "performance": {
+                    "response_time_ms": response_data.get('processing_time_ms', 0),
+                    "contexts_found": len(response_data.get('sources', []))
+                }
+            })
         
     except Exception as e:
         return jsonify({"error": str(e)})
@@ -100,18 +142,31 @@ def health_check():
         # Get system health
         system_health = check_system_health()
         
-        status = "healthy" if system_health['healthy'] else "degraded"
-        status_code = 200 if system_health['healthy'] else 200  # Still return 200 for degraded
+        # Check enterprise agent health
+        enterprise_health = {"status": "not_available"}
+        try:
+            from lib.enterprise_rag_agent import create_enterprise_rag_agent_with_monitoring
+            agent = create_enterprise_rag_agent_with_monitoring()
+            enterprise_health = agent.get_system_health()
+            enterprise_health["status"] = "operational"
+        except Exception as e:
+            enterprise_health = {"status": "error", "error": str(e)}
+        
+        overall_healthy = system_health['healthy'] and enterprise_health.get("status") == "operational"
+        status = "healthy" if overall_healthy else "degraded"
+        status_code = 200 if overall_healthy else 200  # Still return 200 for degraded
         
         return jsonify({
             "status": status,
             "timestamp": datetime.now().isoformat(),
             "services": {
                 "database": "ok",
-                "application": "ok"
+                "application": "ok",
+                "enterprise_agent": enterprise_health.get("status", "unknown")
             },
             "system": system_health,
-            "version": "1.0.0"
+            "enterprise": enterprise_health,
+            "version": "4.2.0"
         }), status_code
         
     except Exception as e:

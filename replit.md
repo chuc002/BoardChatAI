@@ -1,7 +1,7 @@
-# Board Continuity MVP
+# BoardContinuity AI v4.2 - Enterprise Platform
 
 ## Overview
-Board Continuity MVP is an AI-powered document intelligence application for interacting with PDF documents. It functions as a knowledge base system, providing natural language responses with contextual citations from uploaded PDFs. The vision is to achieve perfect recall with veteran wisdom, comprehensive validation, system integrity monitoring, and complete institutional intelligence synthesis for board-related decisions.
+BoardContinuity AI is a comprehensive enterprise-grade governance intelligence platform featuring sophisticated multi-agent coordination, advanced document intelligence, and professional-grade human oversight capabilities. The system provides 30-year veteran board member wisdom through a 5-level intelligence architecture coordinating specialized committee agents, enterprise security guardrails, intelligent human intervention, and real-time performance monitoring. Built for enterprise deployment with production-optimized configuration, automated verification, and comprehensive API ecosystem supporting both AI-first efficiency and appropriate human oversight for sensitive governance scenarios.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
