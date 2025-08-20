@@ -1,0 +1,12 @@
+{
+  "success_rate": 40.0,
+  "verdict": "POOR",
+  "results": {
+    "Core Imports": false,
+    "Document Processing": false,
+    "Queue System": false,
+    "Web Application": true,
+    "API Endpoints": true
+  },
+  "timestamp": "2025-08-20T14:03:46.874105"
+}

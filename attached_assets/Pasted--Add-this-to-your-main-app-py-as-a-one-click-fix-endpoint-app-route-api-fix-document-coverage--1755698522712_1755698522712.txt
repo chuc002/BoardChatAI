@@ -1,0 +1,61 @@
+# Add this to your main app.py as a one-click fix endpoint:
+
+@app.route('/api/fix-document-coverage', methods=['POST'])
+def fix_document_coverage():
+    """One-click fix for document coverage issues"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        logger.info(f"Starting one-click coverage fix for {org_id}")
+        
+        # Step 1: Diagnose issues
+        diagnostic = DocumentCoverageDiagnostic()
+        diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        
+        initial_coverage = diagnosis['coverage_analysis']['coverage_percentage']
+        logger.info(f"Initial coverage: {initial_coverage}%")
+        
+        if initial_coverage >= 100:
+            return jsonify({
+                'already_complete': True,
+                'coverage': '100%',
+                'message': 'All documents already processed successfully!'
+            })
+        
+        # Step 2: Attempt bulletproof processing
+        processor = BulletproofDocumentProcessor()
+        processing_result = processor.process_all_documents(org_id, force_reprocess=True)
+        
+        # Step 3: Verify final coverage
+        final_diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        final_coverage = final_diagnosis['coverage_analysis']['coverage_percentage']
+        
+        success = final_coverage >= 90  # 90%+ is considered success
+        
+        logger.info(f"Final coverage: {final_coverage}%")
+        
+        return jsonify({
+            'fix_completed': True,
+            'success': success,
+            'initial_coverage': f"{initial_coverage}%",
+            'final_coverage': f"{final_coverage}%",
+            'processing_results': processing_result,
+            'documents_processed': processing_result['successful'],
+            'documents_failed': processing_result['failed'],
+            'message': f"Coverage improved from {initial_coverage}% to {final_coverage}%"
+        })
+        
+    except Exception as e:
+        logger.error(f"One-click fix failed: {str(e)}")
+        return jsonify({
+            'fix_completed': False,
+            'error': str(e),
+            'message': 'Fix attempt failed - please check logs'
+        }), 500
+
+# Add a big red "FIX NOW" button to your frontend:
