@@ -107,11 +107,21 @@ class AutoScalingRAG:
         start_time = time.time()
         
         try:
-            # Use optimized RAG for enterprise scale
+            # Use optimized RAG with contextual chunking for enterprise scale
             from lib.fast_rag import FastRAG
+            from lib.contextual_chunking import create_contextual_chunker
+            
+            # Initialize contextual chunking
+            chunker = create_contextual_chunker()
+            club_context = chunker.get_club_context(org_id)
             
             fast_rag = FastRAG()
             response_data = fast_rag.generate_fast_response(org_id, query)
+            
+            # Enhance response with contextual information
+            if response_data.get('answer'):
+                response_data['club_context'] = club_context['name']
+                response_data['organization_type'] = club_context['type']
             
             # Enhance with scale information
             response_data.update({
@@ -133,11 +143,21 @@ class AutoScalingRAG:
         start_time = time.time()
         
         try:
-            # Use performance bypass for direct, fast responses
+            # Use performance bypass with contextual enhancement for direct, fast responses
             from lib.performance_bypass import create_performance_bypass
+            from lib.contextual_chunking import create_contextual_chunker
+            
+            # Get contextual information
+            chunker = create_contextual_chunker()
+            club_context = chunker.get_club_context(org_id)
             
             bypass = create_performance_bypass()
             response_data = bypass.handle_query_with_timeout(org_id, query)
+            
+            # Enhance response with contextual information
+            if response_data.get('answer'):
+                response_data['club_context'] = club_context['name']
+                response_data['organization_type'] = club_context['type']
             
             # Enhance with scale information
             response_data.update({
