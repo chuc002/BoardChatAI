@@ -38,3 +38,5 @@ pdfminer.six
 pillow
 pymupdf
 pytesseract
+chardet
+python-magic

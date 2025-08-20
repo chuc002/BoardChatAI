@@ -9,7 +9,6 @@ from datetime import datetime
 
 # Multiple PDF processing libraries for fallback
 try:
-    import pypdf2
     import PyPDF2
 except ImportError:
     PyPDF2 = None
@@ -108,11 +107,11 @@ class BulletproofDocumentProcessor:
             
             if force_reprocess:
                 # Get ALL documents for reprocessing
-                result = supa.table("documents").select("id,filename,file_path,upload_date,file_size").eq("org_id", org_id).order("upload_date", desc=True).execute()
+                result = supa.table("documents").select("id,filename,storage_path,created_at,title").eq("org_id", org_id).order("created_at", desc=True).execute()
             else:
                 # Get only unprocessed documents (no chunks)
                 # First get all documents
-                all_docs = supa.table("documents").select("id,filename,file_path,upload_date,file_size").eq("org_id", org_id).execute()
+                all_docs = supa.table("documents").select("id,filename,storage_path,created_at,title").eq("org_id", org_id).execute()
                 
                 if not all_docs.data:
                     return []
@@ -140,7 +139,7 @@ class BulletproofDocumentProcessor:
         
         doc_id = doc['id']
         filename = doc['filename']
-        file_path = doc.get('file_path', '')
+        file_path = doc.get('storage_path', '')
         
         # Initialize processing result
         processing_result = {
@@ -158,7 +157,7 @@ class BulletproofDocumentProcessor:
         start_time = time.time()
         
         try:
-            # Determine actual file path
+            # Determine actual file path (download from storage if needed)
             actual_file_path = self._get_actual_file_path(file_path, filename)
             
             if not actual_file_path or not os.path.exists(actual_file_path):
@@ -218,14 +217,45 @@ class BulletproofDocumentProcessor:
         
         return processing_result
     
-    def _get_actual_file_path(self, file_path: str, filename: str) -> str:
-        """Get the actual file path, checking multiple possible locations"""
+    def _get_actual_file_path(self, storage_path: str, filename: str) -> str:
+        """Get the actual file path, downloading from Supabase storage if needed"""
         
-        # Try the provided path first
-        if file_path and os.path.exists(file_path):
-            return file_path
-            
-        # Try common upload directories
+        # Try local cache first
+        local_cache_dir = 'temp_documents'
+        os.makedirs(local_cache_dir, exist_ok=True)
+        local_file_path = os.path.join(local_cache_dir, filename)
+        
+        if os.path.exists(local_file_path):
+            return local_file_path
+        
+        # Download from Supabase storage
+        if storage_path:
+            try:
+                from lib.supa import supa, signed_url_for
+                
+                self.logger.info(f"Downloading document from storage: {filename}")
+                
+                # Get signed URL for the document
+                signed_url = signed_url_for(storage_path)
+                
+                if signed_url:
+                    # Download the file
+                    import requests
+                    response = requests.get(signed_url, stream=True)
+                    response.raise_for_status()
+                    
+                    # Save to local cache
+                    with open(local_file_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    
+                    self.logger.info(f"Downloaded successfully: {filename}")
+                    return local_file_path
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to download {filename}: {e}")
+        
+        # Try common upload directories as fallback
         possible_paths = [
             os.path.join('uploads', filename),
             os.path.join('.', 'uploads', filename),
@@ -366,28 +396,33 @@ class BulletproofDocumentProcessor:
         """Create chunks and embeddings from extracted text"""
         
         try:
-            from lib.enhanced_ingest import smart_chunks_by_page
-            from lib.supa import supa, upsert_chunks
+            from lib.supa import supa
             from openai import OpenAI
+            import tiktoken
             
             client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            encoding = tiktoken.encoding_for_model("text-embedding-3-small")
             
-            # Create smart chunks
+            # Create chunks using simple text splitting
             all_chunks = []
+            chunk_size = 800  # Target tokens per chunk
+            overlap = 100     # Overlap tokens
             
             if pages_info:
                 # Process by pages if available
                 for page_info in pages_info:
-                    page_chunks = smart_chunks_by_page(
-                        page_info['text'], 
-                        doc_id, 
-                        filename, 
-                        page_info['page_number']
+                    page_text = page_info['text']
+                    page_chunks = self._create_simple_chunks(
+                        page_text, doc_id, filename, 
+                        page_info['page_number'], encoding, chunk_size, overlap
                     )
                     all_chunks.extend(page_chunks)
             else:
                 # Fallback: process entire document as single unit
-                all_chunks = smart_chunks_by_page(text_content, doc_id, filename, 1)
+                doc_chunks = self._create_simple_chunks(
+                    text_content, doc_id, filename, 1, encoding, chunk_size, overlap
+                )
+                all_chunks.extend(doc_chunks)
             
             if not all_chunks:
                 raise Exception("No chunks created from document")
@@ -441,14 +476,14 @@ class BulletproofDocumentProcessor:
             
             update_data = {
                 'status': status,
-                'processed_at': datetime.now().isoformat(),
-                'chunk_count': chunk_count
+                'processed': True if status == 'processed' else False
             }
             
             if error:
-                update_data['error_message'] = error
+                update_data['error'] = error[:500]  # Limit error message length
             
             supa.table("documents").update(update_data).eq("id", doc_id).execute()
+            self.logger.info(f"Updated document status: {doc_id} -> {status}")
             
         except Exception as e:
             self.logger.error(f"Failed to update document status: {e}")
@@ -490,6 +525,105 @@ class BulletproofDocumentProcessor:
             self.logger.error(f"Failed to get processed document count: {e}")
             return 0
     
+        def _create_simple_chunks(self, text: str, doc_id: str, filename: str, page_num: int, 
+                                 encoding, chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
+            """Create simple text chunks with tiktoken tokenization"""
+        
+            chunks = []
+        
+            # Split text into sentences for better chunking
+            sentences = text.split('.')
+            current_chunk = ""
+            chunk_order = 0
+        
+            for sentence in sentences:
+                sentence = sentence.strip() + '.'
+                test_chunk = current_chunk + " " + sentence if current_chunk else sentence
+            
+                # Check token count
+                tokens = encoding.encode(test_chunk)
+            
+                if len(tokens) <= chunk_size:
+                    current_chunk = test_chunk
+                else:
+                    # Save current chunk if it has content
+                    if current_chunk.strip():
+                        chunks.append({
+                            'document_id': doc_id,
+                            'filename': filename,
+                            'page_number': page_num,
+                            'chunk_order': chunk_order,
+                            'content': current_chunk.strip(),
+                            'token_count': len(encoding.encode(current_chunk))
+                        })
+                        chunk_order += 1
+                
+                    # Start new chunk with current sentence
+                    current_chunk = sentence
+        
+            # Add final chunk
+            if current_chunk.strip():
+                chunks.append({
+                    'document_id': doc_id,
+                    'filename': filename,  
+                    'page_number': page_num,
+                    'chunk_order': chunk_order,
+                    'content': current_chunk.strip(),
+                    'token_count': len(encoding.encode(current_chunk))
+                })
+        
+            return chunks
+
+
+    def _create_simple_chunks(self, text: str, doc_id: str, filename: str, page_num: int, 
+                             encoding, chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
+        """Create simple text chunks with tiktoken tokenization"""
+        
+        chunks = []
+        
+        # Split text into sentences for better chunking
+        sentences = text.split('.')
+        current_chunk = ""
+        chunk_order = 0
+        
+        for sentence in sentences:
+            sentence = sentence.strip() + '.'
+            test_chunk = current_chunk + " " + sentence if current_chunk else sentence
+            
+            # Check token count
+            tokens = encoding.encode(test_chunk)
+            
+            if len(tokens) <= chunk_size:
+                current_chunk = test_chunk
+            else:
+                # Save current chunk if it has content
+                if current_chunk.strip():
+                    chunks.append({
+                        'document_id': doc_id,
+                        'filename': filename,
+                        'page_number': page_num,
+                        'chunk_order': chunk_order,
+                        'content': current_chunk.strip(),
+                        'token_count': len(encoding.encode(current_chunk))
+                    })
+                    chunk_order += 1
+                
+                # Start new chunk with current sentence
+                current_chunk = sentence
+        
+        # Add final chunk
+        if current_chunk.strip():
+            chunks.append({
+                'document_id': doc_id,
+                'filename': filename,  
+                'page_number': page_num,
+                'chunk_order': chunk_order,
+                'content': current_chunk.strip(),
+                'token_count': len(encoding.encode(current_chunk))
+            })
+        
+        return chunks
+
     def get_processing_status(self, org_id: str) -> Dict[str, Any]:
         """Get comprehensive processing status for organization"""
         
@@ -526,7 +660,7 @@ class DocumentCoverageDiagnostic:
             from lib.supa import supa
             
             # Get all documents 
-            all_docs = supa.table("documents").select("id,filename,upload_date,file_size,status").eq("org_id", org_id).execute()
+            all_docs = supa.table("documents").select("id,filename,created_at,title,status").eq("org_id", org_id).execute()
             documents = all_docs.data if all_docs.data else []
             
             # Get documents with chunks
@@ -560,8 +694,8 @@ class DocumentCoverageDiagnostic:
                         'document_id': doc['id'],
                         'filename': doc['filename'],
                         'status': doc.get('status', 'unknown'),
-                        'file_size': doc.get('file_size', 0),
-                        'upload_date': doc.get('upload_date')
+                        'title': doc.get('title', ''),
+                        'created_at': doc.get('created_at')
                     }
                     
                     # Categorize the issue
@@ -634,6 +768,9 @@ class DocumentCoverageDiagnostic:
         
         return repair_results
 
+class BulletproofDocumentProcessor:
+    """Extended class with chunking methods"""
+    
 # Factory function for easy integration
 def create_bulletproof_processor() -> BulletproofDocumentProcessor:
     """Create bulletproof document processor instance"""
