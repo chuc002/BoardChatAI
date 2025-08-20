@@ -35,6 +35,7 @@ from lib.perfect_memory import (record_institutional_interaction, record_complet
 from lib.pattern_recognition import (analyze_governance_patterns, predict_proposal_outcome, get_pattern_insights)
 from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
+from lib.bulletproof_processing import create_bulletproof_processor, DocumentCoverageDiagnostic
 
 app = Flask(__name__)
 

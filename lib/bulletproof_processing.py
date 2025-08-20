@@ -548,47 +548,47 @@ class BulletproofDocumentProcessor:
         chunks = []
         
         # Split text into sentences for better chunking
-            sentences = text.split('.')
-            current_chunk = ""
-            chunk_order = 0
+        sentences = text.split('.')
+        current_chunk = ""
+        chunk_order = 0
         
-            for sentence in sentences:
-                sentence = sentence.strip() + '.'
-                test_chunk = current_chunk + " " + sentence if current_chunk else sentence
+        for sentence in sentences:
+            sentence = sentence.strip() + '.'
+            test_chunk = current_chunk + " " + sentence if current_chunk else sentence
             
-                # Check token count
-                tokens = encoding.encode(test_chunk)
+            # Check token count
+            tokens = encoding.encode(test_chunk)
             
-                if len(tokens) <= chunk_size:
-                    current_chunk = test_chunk
-                else:
-                    # Save current chunk if it has content
-                    if current_chunk.strip():
-                        chunks.append({
-                            'document_id': doc_id,
-                            'filename': filename,
-                            'page_number': page_num,
-                            'chunk_order': chunk_order,
-                            'content': current_chunk.strip(),
-                            'token_count': len(encoding.encode(current_chunk))
-                        })
-                        chunk_order += 1
+            if len(tokens) <= chunk_size:
+                current_chunk = test_chunk
+            else:
+                # Save current chunk if it has content
+                if current_chunk.strip():
+                    chunks.append({
+                        'document_id': doc_id,
+                        'filename': filename,
+                        'page_number': page_num,
+                        'chunk_order': chunk_order,
+                        'content': current_chunk.strip(),
+                        'token_count': len(encoding.encode(current_chunk))
+                    })
+                    chunk_order += 1
                 
-                    # Start new chunk with current sentence
-                    current_chunk = sentence
+                # Start new chunk with current sentence
+                current_chunk = sentence
         
-            # Add final chunk
-            if current_chunk.strip():
-                chunks.append({
-                    'document_id': doc_id,
-                    'filename': filename,  
-                    'page_number': page_num,
-                    'chunk_order': chunk_order,
-                    'content': current_chunk.strip(),
-                    'token_count': len(encoding.encode(current_chunk))
-                })
+        # Add final chunk
+        if current_chunk.strip():
+            chunks.append({
+                'document_id': doc_id,
+                'filename': filename,  
+                'page_number': page_num,
+                'chunk_order': chunk_order,
+                'content': current_chunk.strip(),
+                'token_count': len(encoding.encode(current_chunk))
+            })
         
-            return chunks
+        return chunks
 
 
     def _create_simple_chunks(self, text: str, doc_id: str, filename: str, page_num: int, 
