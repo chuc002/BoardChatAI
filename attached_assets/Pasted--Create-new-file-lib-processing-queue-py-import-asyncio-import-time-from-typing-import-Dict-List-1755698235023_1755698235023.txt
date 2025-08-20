@@ -1,0 +1,177 @@
+# Create new file: lib/processing_queue.py
+
+import asyncio
+import time
+from typing import Dict, List, Any
+from datetime import datetime, timedelta
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+class DocumentProcessingQueue:
+    def __init__(self, max_workers: int = 3):
+        self.max_workers = max_workers
+        self.logger = logging.getLogger(__name__)
+        self.processing_queue = []
+        self.is_processing = False
+        
+    async def add_documents_to_queue(self, org_id: str, document_ids: List[str] = None):
+        """Add documents to processing queue"""
+        
+        try:
+            from lib.supabase_client import supa
+            
+            # Get unprocessed documents
+            if document_ids:
+                # Process specific documents
+                query = """
+                    SELECT id, filename, file_path, org_id
+                    FROM documents 
+                    WHERE id = ANY(%s) AND org_id = %s
+                """
+                result = supa.rpc('execute_sql', {'query': query, 'params': [document_ids, org_id]}).execute()
+            else:
+                # Process all unprocessed documents
+                query = """
+                    SELECT d.id, d.filename, d.file_path, d.org_id
+                    FROM documents d
+                    LEFT JOIN (
+                        SELECT document_id, COUNT(*) as chunk_count 
+                        FROM doc_chunks 
+                        GROUP BY document_id
+                    ) c ON d.id = c.document_id
+                    WHERE d.org_id = %s 
+                    AND (c.chunk_count IS NULL OR c.chunk_count = 0)
+                    AND d.processing_status != 'processing'
+                    ORDER BY d.upload_date ASC
+                """
+                result = supa.rpc('execute_sql', {'query': query, 'params': [org_id]}).execute()
+            
+            documents = result.data if result.data else []
+            
+            # Add to queue
+            for doc in documents:
+                self.processing_queue.append({
+                    'document_id': doc['id'],
+                    'filename': doc['filename'],
+                    'file_path': doc['file_path'],
+                    'org_id': doc['org_id'],
+                    'added_at': datetime.now(),
+                    'priority': 1  # Normal priority
+                })
+            
+            self.logger.info(f"Added {len(documents)} documents to processing queue")
+            
+            # Start processing if not already running
+            if not self.is_processing:
+                await self.process_queue()
+            
+            return {
+                'added_to_queue': len(documents),
+                'queue_size': len(self.processing_queue)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error adding documents to queue: {e}")
+            raise
+    
+    async def process_queue(self):
+        """Process documents in queue with parallel workers"""
+        
+        if self.is_processing:
+            self.logger.info("Processing already in progress")
+            return
+        
+        self.is_processing = True
+        self.logger.info(f"Starting queue processing with {self.max_workers} workers")
+        
+        try:
+            from lib.bulletproof_processing import BulletproofDocumentProcessor
+            processor = BulletproofDocumentProcessor()
+            
+            # Process documents in batches
+            batch_size = self.max_workers
+            processed_count = 0
+            failed_count = 0
+            
+            while self.processing_queue:
+                # Get next batch
+                batch = self.processing_queue[:batch_size]
+                self.processing_queue = self.processing_queue[batch_size:]
+                
+                # Mark documents as processing
+                for doc in batch:
+                    await self._update_processing_status(doc['document_id'], 'processing')
+                
+                # Process batch in parallel
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    futures = {
+                        executor.submit(
+                            processor._process_single_document_bulletproof,
+                            doc['org_id'],
+                            doc
+                        ): doc for doc in batch
+                    }
+                    
+                    for future in as_completed(futures, timeout=300):  # 5 minute timeout per doc
+                        doc = futures[future]
+                        try:
+                            result = future.result()
+                            
+                            if result['success']:
+                                processed_count += 1
+                                self.logger.info(f"✅ Successfully processed: {doc['filename']}")
+                            else:
+                                failed_count += 1
+                                self.logger.error(f"❌ Failed to process: {doc['filename']}")
+                                
+                        except Exception as e:
+                            failed_count += 1
+                            self.logger.error(f"❌ Exception processing {doc['filename']}: {e}")
+                            await self._update_processing_status(doc['document_id'], 'failed', str(e))
+                
+                # Brief pause between batches
+                await asyncio.sleep(1)
+            
+            self.logger.info(f"Queue processing complete: {processed_count} successful, {failed_count} failed")
+            
+        except Exception as e:
+            self.logger.error(f"Queue processing error: {e}")
+        finally:
+            self.is_processing = False
+    
+    async def _update_processing_status(self, document_id: str, status: str, error: str = None):
+        """Update document processing status"""
+        
+        try:
+            from lib.supabase_client import supa
+            
+            update_data = {
+                'processing_status': status,
+                'processed_at': datetime.now().isoformat()
+            }
+            
+            if error:
+                update_data['processing_error'] = error
+            
+            supa.table('documents').update(update_data).eq('id', document_id).execute()
+            
+        except Exception as e:
+            self.logger.error(f"Failed to update status for {document_id}: {e}")
+    
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Get current queue status"""
+        
+        return {
+            'queue_size': len(self.processing_queue),
+            'is_processing': self.is_processing,
+            'pending_documents': [
+                {
+                    'filename': doc['filename'],
+                    'added_at': doc['added_at'].isoformat(),
+                    'priority': doc['priority']
+                } for doc in self.processing_queue
+            ]
+        }
+
+# Singleton queue instance
+document_queue = DocumentProcessingQueue()

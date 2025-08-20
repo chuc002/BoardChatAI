@@ -580,6 +580,21 @@
                     </div>
                 </div>
                 
+                <!-- Document Processing Status -->
+                <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                        <i class="fas fa-cogs mr-2 text-blue-600"></i>
+                        Document Processing
+                    </h3>
+                    <div id="coverage-display" class="coverage-container">
+                        <!-- Coverage status will be populated by JavaScript -->
+                        <div class="text-center py-4 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <div>Checking processing status...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Document Library Status -->
                 <div class="bg-white rounded-lg card-shadow p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
@@ -699,11 +714,222 @@
     <script>
         const ORG_ID = '63602dc6-defe-4355-b66c-aa6b3b1273e3'; // Real org ID from your system
         
+        // Document Processing Management System
+        async function checkDocumentCoverage() {
+            try {
+                const response = await fetch(`/api/document-coverage-status?org_id=${ORG_ID}`);
+                const status = await response.json();
+                
+                updateCoverageDisplay(status);
+                
+                if (status.coverage_analysis.coverage_percentage < 100) {
+                    showProcessingAlert(status);
+                }
+                
+            } catch (error) {
+                console.error('Coverage check failed:', error);
+            }
+        }
+
+        function updateCoverageDisplay(status) {
+            const coverageDiv = document.getElementById('coverage-display');
+            
+            if (!coverageDiv) return;
+            
+            const coverage = status.coverage_analysis;
+            const isComplete = coverage.coverage_percentage === 100;
+            
+            coverageDiv.innerHTML = `
+                <div class="coverage-summary ${isComplete ? 'complete' : 'incomplete'} p-4 rounded-lg border-2 ${isComplete ? 'border-green-500 bg-green-50' : 'border-orange-500 bg-orange-50'}">
+                    <h4 class="font-semibold text-gray-800 mb-3">Document Processing Status</h4>
+                    <div class="coverage-stats grid grid-cols-3 gap-4 mb-4">
+                        <div class="text-center">
+                            <span class="block text-2xl font-bold text-gray-900">${coverage.coverage_percentage}%</span>
+                            <span class="text-sm text-gray-600">Coverage</span>
+                        </div>
+                        <div class="text-center">
+                            <span class="block text-2xl font-bold text-green-600">${coverage.processed_documents}</span>
+                            <span class="text-sm text-gray-600">Processed</span>
+                        </div>
+                        <div class="text-center">
+                            <span class="block text-2xl font-bold text-orange-600">${coverage.unprocessed_documents}</span>
+                            <span class="text-sm text-gray-600">Pending</span>
+                        </div>
+                    </div>
+                    
+                    ${!isComplete ? `
+                        <div class="action-buttons flex gap-2">
+                            <button onclick="processAllDocuments()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                                Process All Documents
+                            </button>
+                            <button onclick="showDetailedStatus()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
+                                View Details
+                            </button>
+                        </div>
+                    ` : `
+                        <div class="success-message text-green-700 font-medium">
+                            ✅ All documents processed successfully!
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        async function processAllDocuments() {
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/api/process-all-documents', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        org_id: ORG_ID,
+                        force_reprocess: false
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.processing_complete) {
+                    showSuccessMessage(`Processing complete! ${result.results.final_coverage} coverage achieved.`);
+                    // Refresh coverage display
+                    setTimeout(checkDocumentCoverage, 2000);
+                } else {
+                    showErrorMessage('Processing failed: ' + (result.error || 'Unknown error'));
+                }
+                
+            } catch (error) {
+                showErrorMessage('Processing failed: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Process All Documents';
+            }
+        }
+
+        function showProcessingAlert(status) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'processing-alert fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            alertDiv.innerHTML = `
+                <div class="alert-content bg-white p-6 rounded-lg max-w-2xl max-h-96 overflow-y-auto shadow-xl">
+                    <h4 class="text-xl font-bold text-orange-600 mb-3">⚠️ Incomplete Document Processing</h4>
+                    <p class="text-gray-700 mb-4">Only ${status.coverage_analysis.coverage_percentage}% of your documents are processed and searchable.</p>
+                    <p class="text-gray-600 mb-4">The AI can only reference information from processed documents, limiting institutional memory completeness.</p>
+                    
+                    <div class="unprocessed-docs mb-6">
+                        <h5 class="font-semibold text-gray-800 mb-2">Documents needing processing:</h5>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                            ${status.processing_issues.slice(0, 5).map(issue => `
+                                <li>${issue.filename} - ${issue.category}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="alert-actions flex gap-3">
+                        <button onclick="processAllDocuments(); dismissAlert(this.closest('.processing-alert'))" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                            Fix Now - Process All Documents
+                        </button>
+                        <button onclick="dismissAlert(this.closest('.processing-alert'))" 
+                                class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(alertDiv);
+        }
+
+        function dismissAlert(alertElement) {
+            if (alertElement) {
+                alertElement.remove();
+            }
+        }
+
+        function showSuccessMessage(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        function showErrorMessage(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        function showDetailedStatus() {
+            // Show detailed processing status in a modal
+            fetch(`/api/diagnose-coverage?org_id=${ORG_ID}`)
+                .then(response => response.json())
+                .then(diagnosis => {
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                    modal.innerHTML = `
+                        <div class="bg-white p-6 rounded-lg max-w-4xl max-h-96 overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold">Document Processing Details</h3>
+                                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-blue-50 p-4 rounded">
+                                        <div class="text-2xl font-bold text-blue-600">${diagnosis.coverage_analysis.total_documents}</div>
+                                        <div class="text-sm text-gray-600">Total Documents</div>
+                                    </div>
+                                    <div class="bg-green-50 p-4 rounded">
+                                        <div class="text-2xl font-bold text-green-600">${diagnosis.coverage_analysis.processed_documents}</div>
+                                        <div class="text-sm text-gray-600">Successfully Processed</div>
+                                    </div>
+                                </div>
+                                
+                                ${diagnosis.processing_issues.length > 0 ? `
+                                    <div>
+                                        <h4 class="font-semibold mb-2">Processing Issues:</h4>
+                                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                                            ${diagnosis.processing_issues.map(issue => `
+                                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                    <span class="text-sm">${issue.filename}</span>
+                                                    <span class="text-xs px-2 py-1 rounded ${
+                                                        issue.category === 'never_processed' ? 'bg-red-100 text-red-700' :
+                                                        issue.category === 'processing_failed' ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                    }">${issue.category.replace('_', ' ')}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                })
+                .catch(error => {
+                    showErrorMessage('Failed to load detailed status');
+                });
+        }
+        
         // Initialize system
         document.addEventListener('DOMContentLoaded', function() {
             loadSystemMetrics();
             loadIntelligencePanel();
             addInteractiveElements();
+            checkDocumentCoverage(); // Check document processing status
         });
         
         function handleKeyPress(event) {
