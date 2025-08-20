@@ -580,27 +580,48 @@
                     </div>
                 </div>
                 
-                <!-- Document Upload -->
+                <!-- Document Library Status -->
                 <div class="bg-white rounded-lg card-shadow p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
-                        <i class="fas fa-upload mr-2 text-purple-600"></i>
-                        Document Intelligence
+                        <i class="fas fa-library mr-2 text-purple-600"></i>
+                        Document Library
                     </h3>
-                    <div id="upload-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors document-card">
+                    
+                    <!-- Document Status Summary -->
+                    <div id="documents-summary" class="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div id="total-docs" class="text-2xl font-bold text-blue-600">-</div>
+                                <div class="text-xs text-gray-600">Total</div>
+                            </div>
+                            <div>
+                                <div id="searchable-docs" class="text-2xl font-bold text-green-600">-</div>
+                                <div class="text-xs text-gray-600">Searchable</div>
+                            </div>
+                            <div>
+                                <div id="processing-docs" class="text-2xl font-bold text-orange-600">-</div>
+                                <div class="text-xs text-gray-600">Processing</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Document List -->
+                    <div id="documents-list" class="max-h-64 overflow-y-auto space-y-2 mb-4">
+                        <!-- Documents will be loaded here -->
+                    </div>
+                    
+                    <!-- Upload Section -->
+                    <div id="upload-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
                         <input type="file" id="file-upload" accept=".pdf" class="hidden" onchange="uploadDocument()">
                         <button id="upload-button" onclick="document.getElementById('file-upload').click()" class="text-blue-600 hover:text-blue-800">
-                            <div id="upload-icon" class="text-3xl mb-2">📄</div>
-                            <div id="upload-text" class="font-medium">Upload Board Documents</div>
-                            <div id="upload-subtext" class="text-sm text-gray-500 mt-1">PDF files • Perfect extraction guaranteed</div>
+                            <div class="flex items-center justify-center gap-2">
+                                <i class="fas fa-plus text-sm"></i>
+                                <span class="font-medium">Add Document</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">PDF files only</div>
                         </button>
                     </div>
-                    <div id="upload-status" class="mt-3 text-sm"></div>
-                    <div id="upload-progress" class="mt-2 hidden">
-                        <div class="bg-gray-200 rounded-full h-2 mb-2">
-                            <div id="progress-bar" class="progress-bar h-2 rounded-full"></div>
-                        </div>
-                        <div id="progress-text" class="text-xs text-gray-600 text-center"></div>
-                    </div>
+                    <div id="upload-status" class="mt-2 text-sm"></div>
                 </div>
                 
                 <!-- Quick Actions -->
