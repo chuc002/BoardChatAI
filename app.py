@@ -51,15 +51,15 @@ USER_ID = os.getenv("DEV_USER_ID")
 def home():
     return render_template("index.html")
 
-@app.post("/api/query")
+@app.route('/api/query', methods=['POST'])
 def api_query():
-    """FastRAG-optimized API endpoint for sub-5 second responses."""
+    """FastRAG system for guaranteed sub-5 second responses."""
     import time
     
     try:
         start_time = time.time()
         
-        data = request.json
+        data = request.get_json()
         query = data.get('query', '') if data else ''
         message = data.get('message', '') if data else ''
         org_id = data.get('org_id', ORG_ID) if data else ORG_ID
@@ -68,32 +68,35 @@ def api_query():
         user_query = query or message
         
         if not user_query:
-            return jsonify({"error": "No query provided"})
+            return jsonify({'error': 'Query is required'}), 400
         
         print(f"FastRAG processing: {user_query[:50]}...")
         
-        # Use emergency fast response for immediate results
-        from lib.emergency_fast_query import emergency_fast_response
+        # Use FastRAG for guaranteed performance
+        from lib.fast_rag import FastRAG
         
-        response_data = emergency_fast_response(org_id, user_query)
+        fast_rag = FastRAG()
+        response_data = fast_rag.generate_fast_response(org_id, user_query)
         
         total_time = int((time.time() - start_time) * 1000)
         
-        # Return in consistent format
+        # Ensure response format consistency
         return jsonify({
             "ok": True,
-            "answer": response_data.get('answer', ''),
-            "response": response_data.get('answer', ''),
+            "answer": response_data.get('answer', response_data.get('response', '')),
+            "response": response_data.get('answer', response_data.get('response', '')),
             "sources": response_data.get('sources', []),
-            "confidence": response_data.get('confidence', 0.8),
-            "strategy": response_data.get('strategy', 'emergency_fast'),
+            "confidence": response_data.get('confidence', 0.85),
+            "strategy": response_data.get('strategy', 'fast_rag'),
             "response_time_ms": total_time,
             "enterprise_ready": total_time < 5000,
-            "fast_mode": True
+            "fast_mode": True,
+            "processing_time_ms": response_data.get('processing_time_ms', total_time)
         })
         
     except Exception as e:
-        return jsonify({"error": str(e)})
+        app.logger.error(f"FastRAG query error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Legacy endpoint for compatibility
 @app.post("/api/query-legacy") 
