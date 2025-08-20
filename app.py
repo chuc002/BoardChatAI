@@ -72,11 +72,11 @@ def api_query():
         
         print(f"FastRAG processing: {user_query[:50]}...")
         
-        # Use performance bypass for guaranteed sub-3 second responses
-        from lib.performance_bypass import create_performance_bypass
+        # Use auto-scaling RAG system for optimal performance
+        from lib.auto_scaling_rag import create_auto_scaling_rag
         
-        bypass = create_performance_bypass()
-        response_data = bypass.handle_query_with_timeout(org_id, user_query)
+        auto_rag = create_auto_scaling_rag()
+        response_data = auto_rag.generate_scaled_response(org_id, user_query)
         
         total_time = int((time.time() - start_time) * 1000)
         
