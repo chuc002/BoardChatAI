@@ -1,0 +1,106 @@
+# Add these endpoints to your app.py:
+
+@app.route('/api/process-all-documents', methods=['POST'])
+def process_all_documents():
+    """Process all unprocessed documents with bulletproof system"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        force_reprocess = data.get('force_reprocess', False)
+        
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        processor = BulletproofDocumentProcessor()
+        
+        # Start processing (this might take a while)
+        result = processor.process_all_documents(org_id, force_reprocess)
+        
+        return jsonify({
+            'processing_complete': True,
+            'results': result,
+            'message': f"Processing complete: {result['final_coverage']} coverage achieved"
+        })
+        
+    except Exception as e:
+        logger.error(f"Document processing error: {str(e)}")
+        return jsonify({
+            'error': 'Document processing failed',
+            'details': str(e)
+        }), 500
+
+@app.route('/api/document-coverage-status', methods=['GET'])
+def get_document_coverage_status():
+    """Get comprehensive document coverage status"""
+    
+    try:
+        org_id = request.args.get('org_id')
+        
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        diagnostic = DocumentCoverageDiagnostic()
+        status = diagnostic.diagnose_coverage_issues(org_id)
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Coverage status error: {str(e)}")
+        return jsonify({'error': 'Failed to get coverage status'}), 500
+
+@app.route('/api/repair-document-coverage', methods=['POST'])
+def repair_document_coverage():
+    """Repair document coverage issues"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        repair_actions = data.get('repair_actions', ['force_reprocess_failed'])
+        
+        if not org_id:
+            return jsonify({'error': 'Missing org_id'}), 400
+        
+        diagnostic = DocumentCoverageDiagnostic()
+        repair_result = diagnostic.repair_coverage_issues(org_id, repair_actions)
+        
+        return jsonify(repair_result)
+        
+    except Exception as e:
+        logger.error(f"Document repair error: {str(e)}")
+        return jsonify({'error': 'Document repair failed'}), 500
+
+@app.route('/api/document-processing-logs', methods=['GET'])
+def get_processing_logs():
+    """Get detailed processing logs for debugging"""
+    
+    try:
+        org_id = request.args.get('org_id')
+        
+        from lib.supabase_client import supa
+        
+        # Get processing history
+        logs_query = """
+            SELECT 
+                d.filename,
+                d.processing_status,
+                d.processing_error,
+                d.processed_at,
+                d.chunks_count,
+                d.extraction_method,
+                d.file_size
+            FROM documents d
+            WHERE d.org_id = %s
+            ORDER BY d.processed_at DESC NULLS LAST
+        """
+        
+        result = supa.rpc('execute_sql', {'query': logs_query, 'params': [org_id]}).execute()
+        
+        return jsonify({
+            'processing_logs': result.data if result.data else [],
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Processing logs error: {str(e)}")
+        return jsonify({'error': 'Failed to get processing logs'}), 500

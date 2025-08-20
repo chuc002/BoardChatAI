@@ -479,8 +479,24 @@ class BulletproofDocumentProcessor:
                 'processed': True if status == 'processed' else False
             }
             
-            if error:
-                update_data['error'] = error[:500]  # Limit error message length
+            if chunk_count > 0:
+                update_data['processed'] = True
+            
+            # Try to add processing info if columns exist
+            try:
+                if status == 'processed':
+                    update_data.update({
+                        'processing_status': 'processed',
+                        'chunks_count': chunk_count,
+                        'processed_at': datetime.now().isoformat()
+                    })
+                elif status == 'failed' and error:
+                    update_data.update({
+                        'processing_status': 'failed',
+                        'processing_error': error[:500]
+                    })
+            except:
+                pass  # Columns may not exist yet
             
             supa.table("documents").update(update_data).eq("id", doc_id).execute()
             self.logger.info(f"Updated document status: {doc_id} -> {status}")
@@ -525,13 +541,13 @@ class BulletproofDocumentProcessor:
             self.logger.error(f"Failed to get processed document count: {e}")
             return 0
     
-        def _create_simple_chunks(self, text: str, doc_id: str, filename: str, page_num: int, 
-                                 encoding, chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
-            """Create simple text chunks with tiktoken tokenization"""
+    def _create_simple_chunks(self, text: str, doc_id: str, filename: str, page_num: int, 
+                             encoding, chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
+        """Create simple text chunks with tiktoken tokenization"""
         
-            chunks = []
+        chunks = []
         
-            # Split text into sentences for better chunking
+        # Split text into sentences for better chunking
             sentences = text.split('.')
             current_chunk = ""
             chunk_order = 0
