@@ -37,6 +37,7 @@ from lib.rag import answer_question_md
 from lib.supa import supa, signed_url_for, SUPABASE_BUCKET
 from lib.bulletproof_processing import create_bulletproof_processor, DocumentCoverageDiagnostic
 from lib.processing_queue import get_document_queue
+from lib.enhanced_coverage import one_click_coverage_fix, quick_coverage_check, enhanced_document_processing_status
 
 app = Flask(__name__)
 
@@ -1436,72 +1437,42 @@ def document_coverage_status():
 
 @app.route('/api/fix-document-coverage', methods=['POST'])
 def fix_document_coverage():
-    """One-click fix for document coverage issues"""
-    
+    """Enhanced one-click fix for document coverage issues"""
     try:
-        data = request.json or {}
-        org_id = data.get('org_id', ORG_ID)
-        
-        print(f"Starting one-click coverage fix for {org_id}")
-        
-        # Step 1: Diagnose issues
-        diagnostic = DocumentCoverageDiagnostic()
-        diagnosis = diagnostic.diagnose_coverage_issues(org_id)
-        
-        initial_coverage = diagnosis['coverage_analysis']['coverage_percentage']
-        print(f"Initial coverage: {initial_coverage}%")
-        
-        if initial_coverage >= 100:
-            return jsonify({
-                'already_complete': True,
-                'coverage': '100%',
-                'message': 'All documents already processed successfully!'
-            })
-        
-        # Step 2: Use automated queue system for processing
-        queue = get_document_queue()
-        
-        # Add all unprocessed documents to queue
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        queue_result = loop.run_until_complete(
-            queue.add_documents_to_queue(org_id)
-        )
-        
-        # Step 3: Wait for processing to complete (with timeout)
+        import time
         start_time = time.time()
-        max_wait = 300  # 5 minutes max
+        org_id = "63602dc6-defe-4355-b66c-aa6b3b1273e3"  # Default org
         
-        while queue.is_processing and (time.time() - start_time) < max_wait:
-            time.sleep(2)  # Check every 2 seconds
+        # Run enhanced coverage fix
+        results = one_click_coverage_fix(org_id)
         
-        # Step 4: Verify final coverage
-        final_diagnosis = diagnostic.diagnose_coverage_issues(org_id)
-        final_coverage = final_diagnosis['coverage_analysis']['coverage_percentage']
-        
-        success = final_coverage >= 90  # 90%+ is considered success
-        
-        print(f"Final coverage: {final_coverage}%")
+        total_time = int((time.time() - start_time) * 1000)
         
         return jsonify({
-            'fix_completed': True,
-            'success': success,
-            'initial_coverage': f"{initial_coverage}%",
-            'final_coverage': f"{final_coverage}%",
-            'queue_result': queue_result,
-            'documents_processed': queue_result['added_to_queue'],
-            'message': f"Coverage improved from {initial_coverage}% to {final_coverage}%"
+            **results,
+            'api_processing_time_ms': total_time
         })
         
     except Exception as e:
-        print(f"One-click fix failed: {str(e)}")
+        print(f"Document coverage fix failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/coverage-status', methods=['GET'])
+def get_coverage_status():
+    """Get comprehensive document processing status"""
+    try:
+        org_id = "63602dc6-defe-4355-b66c-aa6b3b1273e3"  # Default org
+        
+        status = enhanced_document_processing_status(org_id)
+        
         return jsonify({
-            'fix_completed': False,
-            'error': str(e),
-            'message': 'Fix attempt failed - please check logs'
-        }), 500
+            'success': True,
+            'status': status
+        })
+        
+    except Exception as e:
+        logger.error(f"Coverage status check failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
