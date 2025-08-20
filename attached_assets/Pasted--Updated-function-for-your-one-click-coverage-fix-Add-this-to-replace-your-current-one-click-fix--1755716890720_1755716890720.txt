@@ -1,0 +1,174 @@
+# Updated function for your one-click coverage fix
+# Add this to replace your current one-click fix function
+
+import time
+import logging
+from typing import Dict, Any
+from .processing_queue import process_documents_async, get_processing_stats, stop_processing
+from .supabase_client import supa
+
+logger = logging.getLogger(__name__)
+
+def one_click_coverage_fix(org_id: str) -> Dict[str, Any]:
+    """
+    Enhanced one-click fix for document coverage issues
+    Now uses the improved processing queue system
+    """
+    try:
+        print(f"Starting one-click coverage fix for {org_id}")
+        
+        # Get current documents and coverage
+        docs_result = supa.table("documents").select(
+            "id,filename,created_at,title,status"
+        ).eq("org_id", org_id).execute()
+        
+        if not docs_result.data:
+            return {
+                'success': False,
+                'error': 'No documents found',
+                'coverage': 0,
+                'processed': 0
+            }
+        
+        all_docs = docs_result.data
+        doc_ids = [doc['id'] for doc in all_docs]
+        
+        # Check current chunk coverage
+        chunks_result = supa.table("doc_chunks").select(
+            "document_id"
+        ).in_("document_id", doc_ids).execute()
+        
+        chunked_doc_ids = set()
+        if chunks_result.data:
+            chunked_doc_ids = set(chunk['document_id'] for chunk in chunks_result.data)
+        
+        current_coverage = len(chunked_doc_ids) / len(all_docs) * 100
+        print(f"Initial coverage: {current_coverage:.1f}%")
+        
+        # Find documents that need processing
+        docs_to_process = []
+        for doc in all_docs:
+            if doc['id'] not in chunked_doc_ids:
+                docs_to_process.append(doc)
+        
+        if not docs_to_process:
+            return {
+                'success': True,
+                'message': 'All documents already processed',
+                'coverage': current_coverage,
+                'processed': 0
+            }
+        
+        print(f"Found {len(docs_to_process)} documents to process")
+        
+        # Start async processing
+        success = process_documents_async(docs_to_process)
+        
+        if not success:
+            return {
+                'success': False,
+                'error': 'Failed to start document processing',
+                'coverage': current_coverage,
+                'processed': 0
+            }
+        
+        # Monitor processing progress
+        start_time = time.time()
+        max_wait_time = 300  # 5 minutes max
+        initial_processed = 0
+        
+        while time.time() - start_time < max_wait_time:
+            stats = get_processing_stats()
+            
+            print(f"Processing stats: {stats}")
+            
+            # Check if processing is complete
+            if stats['queue_size'] == 0 and stats['in_progress'] == 0:
+                print("Processing completed")
+                break
+            
+            # Check for failures
+            if stats['failed'] > len(docs_to_process) // 2:  # If more than half failed
+                print(f"Too many failures: {stats['failed']}")
+                break
+            
+            time.sleep(2)  # Check every 2 seconds
+        
+        # Get final stats
+        final_stats = get_processing_stats()
+        
+        # Calculate final coverage
+        final_chunks_result = supa.table("doc_chunks").select(
+            "document_id"
+        ).in_("document_id", doc_ids).execute()
+        
+        final_chunked_doc_ids = set()
+        if final_chunks_result.data:
+            final_chunked_doc_ids = set(chunk['document_id'] for chunk in final_chunks_result.data)
+        
+        final_coverage = len(final_chunked_doc_ids) / len(all_docs) * 100
+        processed_count = len(final_chunked_doc_ids) - len(chunked_doc_ids)
+        
+        return {
+            'success': True,
+            'initial_coverage': current_coverage,
+            'final_coverage': final_coverage,
+            'improvement': final_coverage - current_coverage,
+            'processed': processed_count,
+            'failed': final_stats.get('failed', 0),
+            'total_documents': len(all_docs),
+            'processing_time': time.time() - start_time,
+            'stats': final_stats
+        }
+        
+    except Exception as e:
+        logger.error(f"One-click coverage fix failed: {e}")
+        
+        # Try to stop processing on error
+        try:
+            stop_processing()
+        except:
+            pass
+            
+        return {
+            'success': False,
+            'error': str(e),
+            'coverage': 0,
+            'processed': 0
+        }
+
+def quick_coverage_check(org_id: str) -> Dict[str, Any]:
+    """Quick check of document coverage without processing"""
+    try:
+        # Get documents
+        docs_result = supa.table("documents").select(
+            "id,filename,title,status"
+        ).eq("org_id", org_id).execute()
+        
+        if not docs_result.data:
+            return {'coverage': 0, 'total': 0, 'processed': 0}
+        
+        all_docs = docs_result.data
+        doc_ids = [doc['id'] for doc in all_docs]
+        
+        # Check chunks
+        chunks_result = supa.table("doc_chunks").select(
+            "document_id"
+        ).in_("document_id", doc_ids).execute()
+        
+        chunked_doc_ids = set()
+        if chunks_result.data:
+            chunked_doc_ids = set(chunk['document_id'] for chunk in chunks_result.data)
+        
+        coverage = len(chunked_doc_ids) / len(all_docs) * 100
+        
+        return {
+            'coverage': coverage,
+            'total': len(all_docs),
+            'processed': len(chunked_doc_ids),
+            'unprocessed': len(all_docs) - len(chunked_doc_ids)
+        }
+        
+    except Exception as e:
+        logger.error(f"Coverage check failed: {e}")
+        return {'coverage': 0, 'total': 0, 'processed': 0, 'error': str(e)}

@@ -1,0 +1,264 @@
+# lib/processing_queue.py - Complete Fix
+# This fixes all import and threading issues
+
+import time
+import threading
+import queue
+import logging
+from typing import List, Dict, Any, Optional
+from .ingest import process_uploaded_document
+from .supabase_client import supa
+
+logger = logging.getLogger(__name__)
+
+class ProcessingQueue:
+    """Thread-safe document processing queue for enterprise scale"""
+    
+    def __init__(self, max_workers: int = 3):
+        self.max_workers = max_workers
+        self.queue = queue.Queue()
+        self.workers = []
+        self.running = False
+        self.stats = {
+            'processed': 0,
+            'failed': 0,
+            'in_progress': 0
+        }
+        
+    def add_documents(self, documents: List[Dict[str, Any]]) -> bool:
+        """Add documents to processing queue"""
+        try:
+            for doc in documents:
+                self.queue.put(doc)
+            
+            logger.info(f"Added {len(documents)} documents to processing queue")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to add documents to queue: {e}")
+            return False
+    
+    def start_processing(self) -> bool:
+        """Start worker threads to process queue"""
+        try:
+            if self.running:
+                logger.warning("Processing already running")
+                return True
+                
+            self.running = True
+            self.workers = []
+            
+            # Start worker threads
+            for i in range(self.max_workers):
+                worker = threading.Thread(
+                    target=self._worker_thread,
+                    args=(f"worker-{i}",),
+                    daemon=True
+                )
+                worker.start()
+                self.workers.append(worker)
+            
+            logger.info(f"Starting queue processing with {self.max_workers} workers")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start processing: {e}")
+            self.running = False
+            return False
+    
+    def stop_processing(self) -> bool:
+        """Stop all worker threads"""
+        try:
+            self.running = False
+            
+            # Signal workers to stop by adding None items
+            for _ in range(self.max_workers):
+                self.queue.put(None)
+            
+            # Wait for workers to finish
+            for worker in self.workers:
+                worker.join(timeout=5.0)
+            
+            self.workers = []
+            logger.info("Processing queue stopped")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to stop processing: {e}")
+            return False
+    
+    def _worker_thread(self, worker_name: str):
+        """Worker thread function"""
+        logger.info(f"{worker_name} started")
+        
+        while self.running:
+            try:
+                # Get document from queue with timeout
+                doc = self.queue.get(timeout=1.0)
+                
+                # Check for stop signal
+                if doc is None:
+                    logger.info(f"{worker_name} received stop signal")
+                    break
+                
+                # Process document
+                self.stats['in_progress'] += 1
+                success = self._process_document(doc, worker_name)
+                
+                if success:
+                    self.stats['processed'] += 1
+                else:
+                    self.stats['failed'] += 1
+                    
+                self.stats['in_progress'] -= 1
+                
+                # Mark task as done
+                self.queue.task_done()
+                
+            except queue.Empty:
+                # Timeout waiting for work - continue loop
+                continue
+                
+            except Exception as e:
+                logger.error(f"{worker_name} error: {e}")
+                self.stats['failed'] += 1
+                self.stats['in_progress'] -= 1
+                
+        logger.info(f"{worker_name} finished")
+    
+    def _process_document(self, doc: Dict[str, Any], worker_name: str) -> bool:
+        """Process a single document"""
+        try:
+            doc_id = doc.get('id')
+            filename = doc.get('filename', 'unknown')
+            
+            logger.info(f"{worker_name} processing {filename}")
+            
+            # Process the document
+            result = process_uploaded_document(doc_id)
+            
+            if result and result.get('success'):
+                logger.info(f"{worker_name} successfully processed {filename}")
+                return True
+            else:
+                error_msg = result.get('error', 'Unknown error') if result else 'No result'
+                logger.error(f"{worker_name} failed to process {filename}: {error_msg}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"{worker_name} exception processing {doc.get('filename', 'unknown')}: {e}")
+            return False
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get processing statistics"""
+        return {
+            **self.stats,
+            'queue_size': self.queue.qsize(),
+            'running': self.running,
+            'workers': len(self.workers)
+        }
+    
+    def wait_for_completion(self, timeout: Optional[float] = None) -> bool:
+        """Wait for all items in queue to be processed"""
+        try:
+            if timeout:
+                # Wait with timeout
+                start_time = time.time()
+                while not self.queue.empty():
+                    if time.time() - start_time > timeout:
+                        logger.warning(f"Queue processing timeout after {timeout}s")
+                        return False
+                    time.sleep(0.1)
+            else:
+                # Wait indefinitely
+                self.queue.join()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error waiting for completion: {e}")
+            return False
+
+# Global processing queue instance
+_processing_queue = None
+
+def get_processing_queue() -> ProcessingQueue:
+    """Get or create global processing queue"""
+    global _processing_queue
+    if _processing_queue is None:
+        _processing_queue = ProcessingQueue()
+    return _processing_queue
+
+def process_documents_async(documents: List[Dict[str, Any]]) -> bool:
+    """Start processing documents asynchronously"""
+    try:
+        queue_instance = get_processing_queue()
+        
+        # Add documents to queue
+        if not queue_instance.add_documents(documents):
+            return False
+        
+        # Start processing if not already running
+        if not queue_instance.running:
+            return queue_instance.start_processing()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to start async processing: {e}")
+        return False
+
+def get_processing_stats() -> Dict[str, Any]:
+    """Get current processing statistics"""
+    try:
+        queue_instance = get_processing_queue()
+        return queue_instance.get_stats()
+    except Exception as e:
+        logger.error(f"Failed to get processing stats: {e}")
+        return {
+            'processed': 0,
+            'failed': 0,
+            'in_progress': 0,
+            'queue_size': 0,
+            'running': False,
+            'workers': 0,
+            'error': str(e)
+        }
+
+def stop_processing() -> bool:
+    """Stop document processing"""
+    try:
+        queue_instance = get_processing_queue()
+        return queue_instance.stop_processing()
+    except Exception as e:
+        logger.error(f"Failed to stop processing: {e}")
+        return False
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Test the processing queue
+    print("Testing ProcessingQueue...")
+    
+    # Create test documents
+    test_docs = [
+        {'id': 'doc1', 'filename': 'test1.pdf'},
+        {'id': 'doc2', 'filename': 'test2.pdf'},
+        {'id': 'doc3', 'filename': 'test3.pdf'}
+    ]
+    
+    # Start processing
+    success = process_documents_async(test_docs)
+    print(f"Started processing: {success}")
+    
+    # Monitor progress
+    for i in range(10):
+        stats = get_processing_stats()
+        print(f"Stats: {stats}")
+        time.sleep(1)
+        
+        if stats['queue_size'] == 0 and stats['in_progress'] == 0:
+            break
+    
+    # Stop processing
+    stop_success = stop_processing()
+    print(f"Stopped processing: {stop_success}")
