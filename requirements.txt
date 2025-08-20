@@ -40,3 +40,9 @@ pymupdf
 pytesseract
 chardet
 python-magic
+chardet
+pdf2image
+Pillow
+PyMuPDF
+pytesseract
+python-magic
