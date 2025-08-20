@@ -1135,6 +1135,99 @@ def deployment_verification():
             'error': f'Deployment verification failed: {str(e)}'
         }), 500
 
+@app.post("/api/bulletproof-processing")
+def bulletproof_processing():
+    """Run bulletproof document processing to achieve 100% coverage"""
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        force_reprocess = data.get('force_reprocess', False)
+        
+        from lib.bulletproof_processing import create_bulletproof_processor
+        
+        processor = create_bulletproof_processor()
+        processing_result = processor.process_all_documents(org_id, force_reprocess)
+        
+        return jsonify({
+            'ok': True,
+            'bulletproof_processing': processing_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Bulletproof processing failed: {str(e)}'
+        }), 500
+
+@app.get("/api/processing-status")
+def processing_status():
+    """Get comprehensive document processing status"""
+    try:
+        org_id = request.args.get('org_id', ORG_ID)
+        
+        from lib.bulletproof_processing import create_bulletproof_processor
+        
+        processor = create_bulletproof_processor()
+        status = processor.get_processing_status(org_id)
+        
+        return jsonify({
+            'ok': True,
+            'processing_status': status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Processing status check failed: {str(e)}'
+        }), 500
+
+@app.post("/api/diagnose-coverage")
+def diagnose_coverage():
+    """Diagnose document coverage issues and provide repair recommendations"""
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        
+        from lib.bulletproof_processing import DocumentCoverageDiagnostic
+        
+        diagnostic = DocumentCoverageDiagnostic()
+        diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        
+        return jsonify({
+            'ok': True,
+            'coverage_diagnosis': diagnosis
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Coverage diagnosis failed: {str(e)}'
+        }), 500
+
+@app.post("/api/repair-coverage")
+def repair_coverage():
+    """Execute repair actions to achieve 100% document coverage"""
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        repair_actions = data.get('repair_actions', ['force_reprocess_failed', 'process_pending_documents'])
+        
+        from lib.bulletproof_processing import DocumentCoverageDiagnostic
+        
+        diagnostic = DocumentCoverageDiagnostic()
+        repair_result = diagnostic.repair_coverage_issues(org_id, repair_actions)
+        
+        return jsonify({
+            'ok': True,
+            'coverage_repair': repair_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Coverage repair failed: {str(e)}'
+        }), 500
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     port = int(os.environ.get('PORT', 5000))
