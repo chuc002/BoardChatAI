@@ -134,8 +134,8 @@ class ProcessingQueue:
             
             self.logger.info(f"{worker_name} processing {filename}")
             
-            # Use enhanced ingestion for document processing
-            from lib.enhanced_ingest import enhanced_upsert_document
+            # Use standard ingestion for document processing
+            from lib.ingest import upsert_document
             from lib.supa import supa
             
             # Download document content
@@ -161,7 +161,7 @@ class ProcessingQueue:
                 org_id = "63602dc6-defe-4355-b66c-aa6b3b1273e3"
                 user_id = "dev-user-123"
                 
-                doc_result, chunks_created = enhanced_upsert_document(
+                doc_result, chunks_created = upsert_document(
                     org_id, user_id, filename, response.content, "application/pdf"
                 )
                 

@@ -1,0 +1,107 @@
+[2025-08-20 19:21:19 +0000] [1930] [INFO] Starting gunicorn 23.0.0
+[2025-08-20 19:21:19 +0000] [1930] [INFO] Listening at: http://0.0.0.0:5000 (1930)
+[2025-08-20 19:21:19 +0000] [1930] [INFO] Using worker: sync
+[2025-08-20 19:21:19 +0000] [1941] [INFO] Booting worker with pid: 1941
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:20 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:21,050 - lib.rag - INFO - Enterprise guardrails initialized successfully
+2025-08-20 19:21:21,058 - lib.rag - INFO - Committee agents system initialized successfully
+2025-08-20 19:21:21,073 - lib.enterprise_rag_agent - INFO - Enterprise guardrails initialized for RAG agent
+2025-08-20 19:21:21,080 - lib.enterprise_rag_agent - INFO - Committee agents initialized for RAG agent
+2025-08-20 19:21:21,080 - lib.human_intervention - INFO - Human intervention manager initialized with enterprise thresholds
+2025-08-20 19:21:21,080 - lib.enterprise_rag_agent - INFO - Human intervention system initialized for RAG agent
+2025-08-20 19:21:21,081 - lib.enterprise_rag_agent - INFO - Performance monitoring initialized for RAG agent
+2025-08-20 19:21:21,081 - lib.rag - INFO - Enterprise RAG agent initialized successfully
+2025-08-20 19:21:21,081 - lib.human_intervention - INFO - Human intervention manager initialized with enterprise thresholds
+2025-08-20 19:21:21,081 - lib.rag - INFO - Human intervention system initialized successfully
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:21 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:22,648 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Ctitle%2Cfilename%2Cstorage_path%2Cstatus%2Cprocessed%2Ccreated_at&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3&order=created_at.desc&limit=500 "HTTP/2 200 OK"
+[2025-08-20 19:21:22 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:22 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:23,006 - httpx - INFO - HTTP Request: POST https://owaaeldudvrmpisoyfsz.supabase.co/storage/v1/object/sign/bc_documents/63602dc6-defe-4355-b66c-aa6b3b1273e3/514f9325330c01d620687148689162a2240068a6824a708f35b9c7f3760e90c4/Meeting%20Book%20-%20IHCC%20Board%20of%20Governors%20August%20Meeting%20(1).pdf "HTTP/2 200 OK"
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:23,129 - httpx - INFO - HTTP Request: POST https://owaaeldudvrmpisoyfsz.supabase.co/storage/v1/object/sign/bc_documents/63602dc6-defe-4355-b66c-aa6b3b1273e3/accbaa0334b79670af67bb6bb1f1564c483dd05aa684a3829cb6913986dc68c2/Meeting%20Book%20-%20IHCC%20Board%20of%20Governors%20May%20Meeting.pdf "HTTP/2 200 OK"
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:23,232 - httpx - INFO - HTTP Request: POST https://owaaeldudvrmpisoyfsz.supabase.co/storage/v1/object/sign/bc_documents/63602dc6-defe-4355-b66c-aa6b3b1273e3/9aadef9cc38a047e430ac3c78d3fcfa308bd602dbd81bcc70fde84a30192b17a/Meeting%20Book%20-%20IHCC%20Board%20of%20Governors%20February%20Meeting%20(1).pdf "HTTP/2 200 OK"
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:23,324 - httpx - INFO - HTTP Request: POST https://owaaeldudvrmpisoyfsz.supabase.co/storage/v1/object/sign/bc_documents/63602dc6-defe-4355-b66c-aa6b3b1273e3/57a75f2fed403a93304a53941240d1770ba9ef899d4eb77f6bba1ec970ce0b10/Meeting%20Book%20-%20IHCC%20Board%20of%20Governors%20January%20Meeting%20(1).pdf "HTTP/2 200 OK"
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+[2025-08-20 19:21:23 +0000] [1930] [INFO] Handling signal: winch
+2025-08-20 19:21:23,415 - httpx - INFO - HTTP Request: POST https://owaaeldudvrmpisoyfsz.supabase.co/storage/v1/object/sign/bc_documents/63602dc6-defe-4355-b66c-aa6b3b1273e3/bd5e2ce7b2bcab13516527ea38b635178cdfeeb2e0b9b71c442ba0c2e8418b42/2024%20IHCC%20RULES%20AMENDED%20_%20RESTATED%2009-17-2024F.pdf "HTTP/2 200 OK"
+2025-08-20 19:21:23,518 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/complete_record?select=id&limit=1 "HTTP/2 200 OK"
+2025-08-20 19:21:23,520 - lib.perfect_memory - INFO - complete_record table exists
+2025-08-20 19:21:23,591 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/decision_complete?select=id&limit=1 "HTTP/2 200 OK"
+2025-08-20 19:21:23,592 - lib.perfect_memory - INFO - decision_complete table exists
+2025-08-20 19:21:23,670 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/member_complete_history?select=id&limit=1 "HTTP/2 200 OK"
+2025-08-20 19:21:23,671 - lib.perfect_memory - INFO - member_complete_history table exists
+2025-08-20 19:21:23,671 - lib.perfect_memory - INFO - Perfect Memory System initialized
+2025-08-20 19:21:23,788 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/complete_record?select=%2A&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3&order=date.desc&limit=10000 "HTTP/2 200 OK"
+2025-08-20 19:21:23,858 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/decision_complete?select=%2A&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3&order=proposed_date.desc&limit=10000 "HTTP/2 200 OK"
+2025-08-20 19:21:23,975 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/member_complete_history?select=%2A&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:23,976 - lib.perfect_memory - INFO - Generated institutional report: comprehensive
+2025-08-20 19:21:24,057 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Ccreated_at%2Ctitle%2Cstatus&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:24,121 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:21:24,292 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Ccreated_at%2Ctitle%2Cstatus&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:24,379 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+Starting one-click coverage fix for 63602dc6-defe-4355-b66c-aa6b3b1273e3
+2025-08-20 19:21:30,242 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Ccreated_at%2Ctitle%2Cstatus&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:30,365 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+Initial coverage: 40.0%
+Found 3 documents to process
+2025-08-20 19:21:30,440 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Cstorage_path%2Ccreated_at%2Ctitle&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:30,513 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:21:30,514 - lib.processing_queue - INFO - Added 3 documents to processing queue
+2025-08-20 19:21:30,514 - lib.processing_queue - INFO - Added 3 documents to processing queue
+2025-08-20 19:21:30,515 - lib.processing_queue - INFO - worker-0 started
+2025-08-20 19:21:30,515 - lib.processing_queue - INFO - worker-0 processing Meeting Book - IHCC Board of Governors May Meeting.pdf
+2025-08-20 19:21:30,515 - lib.processing_queue - INFO - worker-1 started
+2025-08-20 19:21:30,515 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors May Meeting.pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
+2025-08-20 19:21:30,515 - lib.processing_queue - INFO - worker-2 started
+2025-08-20 19:21:30,516 - lib.processing_queue - INFO - Starting queue processing with 3 workers
+Processing status: {'status': 'running', 'queue_size': 0, 'processed': 0, 'failed': 1, 'in_progress': 2, 'workers': 3}
+2025-08-20 19:21:30,516 - lib.processing_queue - INFO - worker-1 processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf
+2025-08-20 19:21:30,516 - lib.processing_queue - INFO - worker-0 processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf
+2025-08-20 19:21:30,516 - lib.processing_queue - ERROR - worker-1 exception processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
+2025-08-20 19:21:30,516 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
+Processing status: {'status': 'running', 'queue_size': 0, 'processed': 0, 'failed': 3, 'in_progress': 0, 'workers': 3}
+Processing completed
+2025-08-20 19:21:32,657 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:21:37,835 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Ccreated_at%2Ctitle%2Cstatus&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:37,914 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:21:40,873 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/documents?select=id%2Cfilename%2Cstorage_path%2Ccreated_at%2Ctitle&org_id=eq.63602dc6-defe-4355-b66c-aa6b3b1273e3 "HTTP/2 200 OK"
+2025-08-20 19:21:40,967 - httpx - INFO - HTTP Request: GET https://owaaeldudvrmpisoyfsz.supabase.co/rest/v1/doc_chunks?select=document_id&document_id=in.%285a873a88-b18d-4ec9-a537-90a482e9ceb7%2C566b59e7-d0db-45dc-b92c-104d1a8b54ae%2C5ca0f60e-4deb-48a6-b040-96854891e1df%2C74d4e399-50a2-4dfe-b9fb-5b24569571dd%2Ca3e4f4a9-b7af-4cec-a12c-1be8cd53eab6%29 "HTTP/2 200 OK"
+2025-08-20 19:21:40,968 - lib.processing_queue - INFO - Added 3 documents to processing queue
+2025-08-20 19:21:40,968 - lib.processing_queue - INFO - worker-0 processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf
+2025-08-20 19:21:40,968 - lib.processing_queue - INFO - worker-2 processing Meeting Book - IHCC Board of Governors May Meeting.pdf
+2025-08-20 19:21:40,968 - lib.processing_queue - INFO - worker-1 processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf
+2025-08-20 19:21:40,969 - lib.processing_queue - INFO - Added 3 documents to processing queue
+Auto process error: An asyncio.Future, a coroutine or an awaitable is required
+2025-08-20 19:21:40,969 - lib.processing_queue - ERROR - worker-0 exception processing Meeting Book - IHCC Board of Governors February Meeting (1).pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
+2025-08-20 19:21:40,969 - lib.processing_queue - ERROR - worker-2 exception processing Meeting Book - IHCC Board of Governors May Meeting.pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
+2025-08-20 19:21:40,969 - lib.processing_queue - ERROR - worker-1 exception processing Meeting Book - IHCC Board of Governors August Meeting (1).pdf: cannot import name 'enhanced_upsert_document' from 'lib.enhanced_ingest' (/home/runner/workspace/lib/enhanced_ingest.py)
