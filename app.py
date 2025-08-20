@@ -1060,6 +1060,26 @@ def performance_report():
             'error': f'Performance report failed: {str(e)}'
         }), 500
 
+@app.get("/api/deployment-verification")
+def deployment_verification():
+    """Run comprehensive deployment verification checks"""
+    try:
+        from deploy.deployment_verification import DeploymentVerifier
+        
+        verifier = DeploymentVerifier()
+        report = verifier.run_comprehensive_verification()
+        
+        return jsonify({
+            'ok': True,
+            'deployment_verification': report
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'error': f'Deployment verification failed: {str(e)}'
+        }), 500
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     port = int(os.environ.get('PORT', 5000))

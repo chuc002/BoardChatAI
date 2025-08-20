@@ -1,0 +1,106 @@
+# Update your main app.py to use the complete agent system:
+
+from flask import Flask, request, jsonify
+from lib.perfect_rag import EnterpriseRAGAgentWithMonitoring
+from lib.human_intervention import HumanInterventionManager
+from config.production import get_config
+import logging
+import time
+
+app = Flask(__name__)
+
+# Initialize configuration
+config = get_config('production')  # Change to 'development' for dev
+app.config.update(config['environment'])
+
+# Initialize enterprise agent system
+agent = EnterpriseRAGAgentWithMonitoring()
+intervention_manager = HumanInterventionManager()
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, config['base'].MONITORING_CONFIG['log_level']),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@app.route('/api/query', methods=['POST'])
+def handle_enterprise_query():
+    """Enterprise-grade query handling with full agent system"""
+    
+    try:
+        data = request.json
+        org_id = data.get('org_id')
+        query = data.get('query')
+        
+        if not org_id or not query:
+            return jsonify({'error': 'Missing org_id or query'}), 400
+        
+        logger.info(f"Processing query for {org_id}: {query[:100]}...")
+        
+        # Execute enterprise agent
+        response_data = agent.run(org_id, query)
+        
+        # Check for human intervention needs
+        intervention_trigger = intervention_manager.should_intervene(query, response_data)
+        
+        if intervention_trigger:
+            intervention_response = intervention_manager.create_intervention_response(intervention_trigger, query)
+            logger.info(f"Human intervention triggered: {intervention_trigger.value}")
+            return jsonify(intervention_response)
+        
+        # Add enterprise metadata
+        response_data['enterprise_features'] = {
+            'guardrails_enabled': True,
+            'committee_routing': response_data.get('performance', {}).get('agent_type') == 'committee_consultation',
+            'monitoring_active': True,
+            'human_intervention_available': True
+        }
+        
+        logger.info(f"Successful response: {response_data['performance']['response_time_ms']}ms")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Enterprise agent error: {str(e)}")
+        return jsonify({
+            'error': 'I encountered an issue processing your request. Our technical team has been notified.',
+            'enterprise_error': True,
+            'support_reference': f"REF-{int(time.time())}"
+        }), 500
+
+@app.route('/api/system-health', methods=['GET'])
+def get_system_health():
+    """Enterprise system health endpoint"""
+    
+    try:
+        health_data = agent.get_system_health()
+        
+        # Add system status
+        health_data['system_status'] = {
+            'agent_online': True,
+            'guardrails_active': True,
+            'monitoring_active': True,
+            'intervention_available': True,
+            'last_check': time.time()
+        }
+        
+        return jsonify(health_data)
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'system_status': {
+                'agent_online': False,
+                'error': str(e),
+                'last_check': time.time()
+            }
+        }), 500
+
+if __name__ == '__main__':
+    logger.info("Starting BoardContinuity Enterprise Agent System")
+    app.run(
+        host='0.0.0.0',
+        port=int(os.environ.get('PORT', 5000)),
+        debug=config['environment'].get('debug', False)
+    )

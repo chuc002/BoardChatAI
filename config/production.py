@@ -1,0 +1,85 @@
+import os
+from typing import Dict, Any
+
+class ProductionConfig:
+    """Production configuration for enterprise BoardContinuity deployment"""
+    
+    # OpenAI Configuration
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    OPENAI_MODEL_PRIMARY = "gpt-4"  # For complex reasoning
+    OPENAI_MODEL_SECONDARY = "gpt-4o-mini"  # For guardrails and routing
+    
+    # Agent Configuration
+    AGENT_CONFIG = {
+        'max_response_tokens': 2000,
+        'temperature': 0.3,
+        'timeout_seconds': 30,
+        'max_retries': 3,
+        'enable_monitoring': True,
+        'enable_guardrails': True
+    }
+    
+    # Guardrail Configuration
+    GUARDRAIL_CONFIG = {
+        'relevance_threshold': 0.6,
+        'safety_threshold': 0.8,
+        'confidence_threshold': 0.6,
+        'enable_pii_filter': True,
+        'enable_output_validation': True
+    }
+    
+    # Human Intervention Configuration
+    INTERVENTION_CONFIG = {
+        'financial_threshold': 50000,  # $50K+
+        'confidence_threshold': 0.6,
+        'enable_high_risk_detection': True,
+        'auto_escalate_failures': True
+    }
+    
+    # Performance Monitoring
+    MONITORING_CONFIG = {
+        'enable_performance_logging': True,
+        'log_level': 'INFO',
+        'metrics_retention_days': 30,
+        'alert_response_time_ms': 5000,
+        'alert_error_rate_threshold': 0.05
+    }
+    
+    # Database Configuration
+    DATABASE_CONFIG = {
+        'pool_size': 20,
+        'max_overflow': 30,
+        'pool_timeout': 30,
+        'enable_query_logging': False  # Disable in production for performance
+    }
+
+# Environment-specific configurations
+ENVIRONMENT_CONFIGS = {
+    'development': {
+        'debug': True,
+        'agent_timeout': 60,
+        'enable_detailed_logging': True
+    },
+    'staging': {
+        'debug': False,
+        'agent_timeout': 45,
+        'enable_detailed_logging': True
+    },
+    'production': {
+        'debug': False,
+        'agent_timeout': 30,
+        'enable_detailed_logging': False
+    }
+}
+
+def get_config(environment: str = 'production') -> Dict[str, Any]:
+    """Get configuration for specified environment"""
+    
+    base_config = ProductionConfig()
+    env_config = ENVIRONMENT_CONFIGS.get(environment, {})
+    
+    return {
+        'base': base_config,
+        'environment': env_config,
+        'env_name': environment
+    }
