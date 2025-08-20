@@ -1,0 +1,145 @@
+# Create new file: lib/committee_agents.py
+
+from typing import Dict, List, Any
+import openai
+
+class CommitteeAgent:
+    def __init__(self, committee_name: str, specialization: str):
+        self.committee_name = committee_name
+        self.specialization = specialization
+        self.instructions = self._build_instructions()
+    
+    def _build_instructions(self) -> str:
+        return f"""
+        You are the {self.committee_name} Committee specialist within BoardContinuity.
+        
+        SPECIALIZATION: {self.specialization}
+        
+        YOUR ROLE:
+        - Provide deep expertise on {self.committee_name.lower()} matters
+        - Reference specific {self.committee_name.lower()} decisions and patterns
+        - Understand {self.committee_name.lower()} budget cycles and approval processes
+        - Know {self.committee_name.lower()} vendor relationships and performance history
+        
+        RESPONSE STYLE:
+        - Focus specifically on {self.committee_name.lower()}-related aspects
+        - Reference committee meeting patterns and decision history
+        - Provide {self.committee_name.lower()}-specific implementation guidance
+        - Cite {self.committee_name.lower()} precedents and outcomes
+        """
+    
+    def process_query(self, query: str, context: str) -> Dict[str, Any]:
+        """Process committee-specific query"""
+        
+        full_prompt = f"""
+        {self.instructions}
+        
+        CONTEXT: {context}
+        
+        QUERY: {query}
+        
+        Provide your {self.committee_name} Committee perspective on this matter.
+        """
+        
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": full_prompt}],
+                temperature=0.3,
+                max_tokens=1000
+            )
+            
+            return {
+                'committee': self.committee_name,
+                'response': response.choices[0].message.content,
+                'specialization': self.specialization
+            }
+            
+        except Exception as e:
+            return {
+                'committee': self.committee_name,
+                'response': f"Unable to process {self.committee_name} perspective: {str(e)}",
+                'specialization': self.specialization
+            }
+
+class CommitteeManager:
+    def __init__(self):
+        self.committees = {
+            'golf': CommitteeAgent(
+                'Golf',
+                'Course maintenance, pro shop operations, golf events, member golf services'
+            ),
+            'finance': CommitteeAgent(
+                'Finance',
+                'Budget planning, financial oversight, dues structure, investment decisions'
+            ),
+            'food_beverage': CommitteeAgent(
+                'Food & Beverage',
+                'Dining operations, catering, bar service, food quality, vendor management'
+            ),
+            'house': CommitteeAgent(
+                'House',
+                'Facilities maintenance, renovations, member amenities, safety protocols'
+            ),
+            'membership': CommitteeAgent(
+                'Membership',
+                'Member recruitment, retention, orientation, membership categories, social events'
+            )
+        }
+    
+    def route_query(self, query: str, context: str) -> Dict[str, Any]:
+        """Determine which committee(s) should handle the query"""
+        
+        routing_prompt = f"""
+        Analyze this governance query and determine which committee(s) should provide input.
+        
+        AVAILABLE COMMITTEES:
+        - Golf: Course, pro shop, golf operations
+        - Finance: Budget, dues, financial decisions
+        - Food & Beverage: Dining, catering, bar operations
+        - House: Facilities, maintenance, renovations
+        - Membership: Member services, recruitment, events
+        
+        QUERY: {query}
+        
+        Respond with committee names separated by commas, or "general" if it's broad governance.
+        Examples: "finance", "golf,house", "membership,food_beverage", "general"
+        """
+        
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": routing_prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            routing_result = response.choices[0].message.content.strip().lower()
+            
+            if routing_result == "general":
+                return {'committees': [], 'route': 'general'}
+            
+            # Parse committee names
+            committee_names = [name.strip() for name in routing_result.split(',')]
+            relevant_committees = [name for name in committee_names if name in self.committees]
+            
+            return {
+                'committees': relevant_committees,
+                'route': 'specific',
+                'routing_decision': routing_result
+            }
+            
+        except Exception as e:
+            return {'committees': [], 'route': 'general', 'error': str(e)}
+    
+    def get_committee_perspectives(self, query: str, context: str, committees: List[str]) -> List[Dict[str, Any]]:
+        """Get perspectives from specific committees"""
+        
+        perspectives = []
+        
+        for committee_name in committees:
+            if committee_name in self.committees:
+                perspective = self.committees[committee_name].process_query(query, context)
+                perspectives.append(perspective)
+        
+        return perspectives
