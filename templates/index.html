@@ -730,36 +730,26 @@
                 
                 const status = await response.json();
                 
-                if (status.ok && status.coverage_analysis) {
+                if (status && status.ok && status.coverage_analysis) {
                     updateCoverageDisplay(status);
                     
                     if (status.coverage_analysis.coverage_percentage < 100) {
                         showProcessingAlert(status);
                     }
                 } else {
-                    console.warn('Coverage status indicates error:', status.error);
-                    updateCoverageDisplay({
-                        coverage_analysis: {
-                            coverage_percentage: 40,
-                            processed_documents: 2,
-                            unprocessed_documents: 3,
-                            total_documents: 5
-                        },
-                        processing_issues: []
-                    });
+                    console.warn('Coverage status indicates error:', status ? status.error : 'No status');
+                    const fallbackDiv = document.getElementById('coverage-display');
+                    if (fallbackDiv) {
+                        fallbackDiv.innerHTML = '<div class="text-gray-500 text-sm">Coverage monitoring updating...</div>';
+                    }
                 }
                 
             } catch (error) {
                 console.warn('Coverage check failed:', error);
-                updateCoverageDisplay({
-                    coverage_analysis: {
-                        coverage_percentage: 40,
-                        processed_documents: 2,
-                        unprocessed_documents: 3,
-                        total_documents: 5
-                    },
-                    processing_issues: []
-                });
+                const fallbackDiv = document.getElementById('coverage-display');
+                if (fallbackDiv) {
+                    fallbackDiv.innerHTML = '<div class="text-gray-500 text-sm">Coverage check temporarily unavailable</div>';
+                }
             }
         }
 

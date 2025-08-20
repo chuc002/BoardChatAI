@@ -53,7 +53,7 @@ def smart_chunks_by_page(pages: list[tuple[int, str]], target_tokens: int = 900,
 # --- Embeddings ---
 def embed_texts(texts: list[str]) -> list[list[float]]:
     from os import getenv
-    model = getenv("EMBED_MODEL", "text-embedding-ada-002")  # 1536-dim, reliable
+    model = getenv("EMBED_MODEL", "text-embedding-ada-002")  # Use reliable model by default
     try:
         resp = client.embeddings.create(model=model, input=texts)
         return [d.embedding for d in resp.data]
@@ -98,14 +98,24 @@ def upsert_document(org_id: str, user_id: str, filename: str, file_bytes: bytes,
     sha = _sha256_bytes(file_bytes)
     storage_path = f"{org_id}/{sha}/{filename}"
 
-    # De-dupe by sha256
+    # Check for existing document - but allow reprocessing if no chunks exist
     existing = supa.table("documents").select("*").eq("org_id", org_id).eq("sha256", sha).limit(1).execute().data
     if existing:
-        supa.storage.from_(SUPABASE_BUCKET).upload(storage_path, file_bytes, {
-            "content-type": mime_type,
-            "x-upsert": "true"
-        })
-        return existing[0], 0
+        doc = existing[0]
+        # Check if this document has chunks
+        existing_chunks = supa.table("doc_chunks").select("id").eq("document_id", doc["id"]).execute().data
+        
+        if existing_chunks:
+            # Document already has chunks, no need to reprocess
+            supa.storage.from_(SUPABASE_BUCKET).upload(storage_path, file_bytes, {
+                "content-type": mime_type,
+                "x-upsert": "true"
+            })
+            return doc, 0
+        else:
+            # Document exists but has no chunks - continue with processing
+            print(f"[INGEST] Reprocessing existing document {doc['filename']} - no chunks found")
+            doc_to_update = doc
 
     # Upload binary
     supa.storage.from_(SUPABASE_BUCKET).upload(storage_path, file_bytes, {
@@ -113,22 +123,32 @@ def upsert_document(org_id: str, user_id: str, filename: str, file_bytes: bytes,
         "x-upsert": "true"
     })
 
-    # Insert document row
-    doc = supa.table("documents").insert({
-        "org_id": org_id,
-        "created_by": user_id,
-        "title": filename,
-        "name": filename,
-        "filename": filename,
-        "storage_path": storage_path,
-        "file_path": storage_path,
-        "sha256": sha,
-        "mime_type": mime_type,
-        "size_bytes": len(file_bytes),
-        "status": "processing",
-        "processed": False,
-        "processing_error": None
-    }).execute().data[0]
+    # Use existing document or insert new one
+    if 'doc_to_update' in locals():
+        # Update existing document for reprocessing
+        doc = supa.table("documents").update({
+            "status": "processing",
+            "processed": False,
+            "processing_error": None,
+            "size_bytes": len(file_bytes)
+        }).eq("id", doc_to_update["id"]).execute().data[0]
+    else:
+        # Insert new document row
+        doc = supa.table("documents").insert({
+            "org_id": org_id,
+            "created_by": user_id,
+            "title": filename,
+            "name": filename,
+            "filename": filename,
+            "storage_path": storage_path,
+            "file_path": storage_path,
+            "sha256": sha,
+            "mime_type": mime_type,
+            "size_bytes": len(file_bytes),
+            "status": "processing",
+            "processed": False,
+            "processing_error": None
+        }).execute().data[0]
 
     # Extract text (paged)
     pages = extract_pages_from_pdf(file_bytes)
