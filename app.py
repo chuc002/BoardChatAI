@@ -868,6 +868,164 @@ def synthesize_memory():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
+# ---- Enterprise Agent Endpoints ----
+
+@app.post("/api/enterprise-query")
+def enterprise_query():
+    """Enhanced query handler with enterprise agent system"""
+    try:
+        data = request.json
+        org_id = data.get('org_id', ORG_ID)
+        query = data.get('query')
+        
+        if not org_id or not query:
+            return jsonify({'error': 'Missing org_id or query'}), 400
+        
+        # Initialize enterprise agent
+        from lib.enterprise_rag_agent import create_enterprise_rag_agent
+        agent = create_enterprise_rag_agent()
+        
+        # Execute agent with enhanced capabilities
+        response_data = agent.run(org_id, query)
+        
+        # Check if human intervention was triggered
+        if response_data.get('intervention_triggered'):
+            return jsonify({
+                'ok': True,
+                'intervention_required': True,
+                'response': response_data.get('response'),
+                'escalation': {
+                    'trigger_type': response_data.get('trigger_type'),
+                    'urgency_level': response_data.get('urgency_level'),
+                    'next_steps': response_data.get('next_steps'),
+                    'specialist_type': response_data.get('specialist_type'),
+                    'estimated_response_time': response_data.get('estimated_response_time')
+                },
+                'performance': response_data.get('performance', {})
+            })
+        
+        # Return enhanced AI response
+        return jsonify({
+            'ok': True,
+            'response': response_data.get('response'),
+            'sources': response_data.get('sources', []),
+            'enhancement': {
+                'strategy': response_data.get('strategy'),
+                'confidence': response_data.get('confidence'),
+                'committees_consulted': response_data.get('committees_consulted', []),
+                'enterprise_enhanced': response_data.get('enterprise_enhanced', False)
+            },
+            'performance': response_data.get('performance', {})
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': 'I encountered an issue processing your request. Please try again or contact support.',
+            'agent_error': True,
+            'details': str(e)
+        }), 500
+
+@app.post("/api/evaluate-agent")
+def evaluate_agent():
+    """Evaluate agent performance for continuous improvement"""
+    try:
+        data = request.json
+        org_id = data.get('org_id', ORG_ID)
+        test_queries = data.get('test_queries', [])
+        
+        if not test_queries:
+            return jsonify({'error': 'No test queries provided'}), 400
+        
+        from lib.enterprise_rag_agent import create_enterprise_rag_agent
+        agent = create_enterprise_rag_agent()
+        results = []
+        
+        for query in test_queries:
+            start_time = time.time()
+            response = agent.run(org_id, query)
+            end_time = time.time()
+            
+            results.append({
+                'query': query,
+                'response_time_ms': int((end_time - start_time) * 1000),
+                'confidence': response.get('confidence', 0),
+                'strategy': response.get('strategy', 'unknown'),
+                'intervention_triggered': response.get('intervention_triggered', False),
+                'committees_consulted': response.get('committees_consulted', []),
+                'enterprise_enhanced': response.get('enterprise_enhanced', False)
+            })
+        
+        # Calculate performance metrics
+        avg_response_time = sum(r['response_time_ms'] for r in results) / len(results)
+        avg_confidence = sum(r['confidence'] for r in results) / len(results)
+        intervention_rate = sum(1 for r in results if r['intervention_triggered']) / len(results)
+        enhancement_rate = sum(1 for r in results if r['enterprise_enhanced']) / len(results)
+        
+        return jsonify({
+            'evaluation_results': results,
+            'performance_summary': {
+                'avg_response_time_ms': avg_response_time,
+                'avg_confidence': avg_confidence,
+                'intervention_rate': intervention_rate,
+                'enhancement_rate': enhancement_rate,
+                'total_queries': len(results),
+                'enterprise_ready': avg_response_time < 3000 and avg_confidence > 0.7
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Evaluation failed: {str(e)}'}), 500
+
+@app.get("/api/agent-status")
+def agent_status():
+    """Get comprehensive agent system status"""
+    try:
+        from lib.enterprise_rag_agent import create_enterprise_rag_agent
+        from lib.human_intervention import create_human_intervention_manager
+        
+        # Test agent initialization
+        agent = create_enterprise_rag_agent()
+        intervention_manager = create_human_intervention_manager()
+        
+        # Get system capabilities
+        capabilities = {
+            'guardrails_enabled': agent.guardrails_enabled,
+            'committee_agents_enabled': agent.committee_agents_enabled,
+            'intervention_enabled': agent.intervention_enabled,
+            'available_tools': len(agent.tools),
+            'intervention_triggers': len(list(intervention_manager.get_intervention_statistics()['intervention_triggers']))
+        }
+        
+        # Test basic functionality
+        test_query = "What is our membership fee structure?"
+        test_start = time.time()
+        test_response = agent.run(ORG_ID, test_query)
+        test_duration = int((time.time() - test_start) * 1000)
+        
+        return jsonify({
+            'ok': True,
+            'status': 'operational',
+            'capabilities': capabilities,
+            'test_results': {
+                'query': test_query,
+                'response_time_ms': test_duration,
+                'strategy': test_response.get('strategy'),
+                'confidence': test_response.get('confidence'),
+                'intervention_triggered': test_response.get('intervention_triggered', False)
+            },
+            'system_health': {
+                'enterprise_ready': all(capabilities.values()),
+                'response_performance': 'excellent' if test_duration < 2000 else 'good' if test_duration < 4000 else 'needs_optimization'
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'ok': False,
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     port = int(os.environ.get('PORT', 5000))
