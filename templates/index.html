@@ -903,9 +903,13 @@
                     </div>
                     
                     <div class="alert-actions flex gap-3">
+                        <button onclick="executeOneClickFix(); dismissAlert(this.closest('.processing-alert'))" 
+                                class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
+                            🔧 One-Click Fix
+                        </button>
                         <button onclick="processAllDocuments(); dismissAlert(this.closest('.processing-alert'))" 
                                 class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                            Fix Now - Process All Documents
+                            Manual Process
                         </button>
                         <button onclick="dismissAlert(this.closest('.processing-alert'))" 
                                 class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium">
@@ -916,6 +920,135 @@
             `;
             
             document.body.appendChild(alertDiv);
+        }
+
+        // One-Click Fix Implementation
+        function showFixButton() {
+            // Don't show if button already exists
+            if (document.getElementById('fix-coverage-btn')) return;
+            
+            const fixButton = document.createElement('button');
+            fixButton.id = 'fix-coverage-btn';
+            fixButton.className = 'fix-button';
+            fixButton.innerHTML = `
+                <span class="fix-icon">🔧</span>
+                <span class="fix-text">FIX DOCUMENT COVERAGE NOW</span>
+                <span class="fix-subtext">Restore complete institutional memory</span>
+            `;
+            fixButton.onclick = executeOneClickFix;
+            
+            // Add prominent styling
+            const fixStyles = `
+                <style>
+                .fix-button {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #dc2626, #b91c1c);
+                    color: white;
+                    border: none;
+                    padding: 1rem 1.5rem;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
+                    cursor: pointer;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    z-index: 1000;
+                    animation: pulse 2s infinite;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    min-width: 200px;
+                }
+                
+                .fix-button:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 12px 35px rgba(220, 38, 38, 0.4);
+                }
+                
+                .fix-icon {
+                    font-size: 1.5rem;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .fix-text {
+                    font-weight: bold;
+                    font-size: 0.875rem;
+                    line-height: 1.1;
+                }
+                
+                .fix-subtext {
+                    font-size: 0.75rem;
+                    opacity: 0.9;
+                    margin-top: 0.25rem;
+                }
+                
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.8; }
+                }
+                </style>
+            `;
+            
+            document.head.insertAdjacentHTML('beforeend', fixStyles);
+            document.body.appendChild(fixButton);
+        }
+
+        async function executeOneClickFix() {
+            const button = document.getElementById('fix-coverage-btn');
+            const originalContent = button.innerHTML;
+            
+            button.innerHTML = `
+                <span class="fix-icon">⚡</span>
+                <span class="fix-text">PROCESSING...</span>
+                <span class="fix-subtext">This may take a few minutes</span>
+            `;
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/fix-document-coverage', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({org_id: ORG_ID})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success || result.already_complete) {
+                    button.innerHTML = `
+                        <span class="fix-icon">✅</span>
+                        <span class="fix-text">FIXED!</span>
+                        <span class="fix-subtext">${result.final_coverage || result.coverage} coverage</span>
+                    `;
+                    
+                    // Remove button after success
+                    setTimeout(() => {
+                        button.remove();
+                        showSuccessMessage(`Document coverage fixed! ${result.final_coverage || result.coverage} of documents are now processed and searchable.`);
+                        // Refresh coverage display
+                        setTimeout(() => checkDocumentCoverage(), 2000);
+                    }, 3000);
+                    
+                } else {
+                    throw new Error(result.message || 'Fix failed');
+                }
+                
+            } catch (error) {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+                showErrorMessage(`Fix failed: ${error.message}`);
+            }
+        }
+
+        // Show fix button if coverage is incomplete
+        function checkAndShowFixButton() {
+            fetch(`/api/document-coverage-status?org_id=${ORG_ID}`)
+                .then(response => response.json())
+                .then(status => {
+                    if (status.coverage_analysis && status.coverage_analysis.coverage_percentage < 100) {
+                        showFixButton();
+                    }
+                })
+                .catch(console.error);
         }
 
         function dismissAlert(alertElement) {
@@ -1006,6 +1139,7 @@
             loadIntelligencePanel();
             addInteractiveElements();
             checkDocumentCoverage(); // Check document processing status
+            checkAndShowFixButton(); // Show fix button if needed
         });
         
         function handleKeyPress(event) {

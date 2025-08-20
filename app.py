@@ -1307,6 +1307,75 @@ def auto_process_documents():
         print(f"Auto process error: {str(e)}")
         return jsonify({'error': 'Auto processing failed', 'details': str(e)}), 500
 
+@app.route('/api/fix-document-coverage', methods=['POST'])
+def fix_document_coverage():
+    """One-click fix for document coverage issues"""
+    
+    try:
+        data = request.json or {}
+        org_id = data.get('org_id', ORG_ID)
+        
+        print(f"Starting one-click coverage fix for {org_id}")
+        
+        # Step 1: Diagnose issues
+        diagnostic = DocumentCoverageDiagnostic()
+        diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        
+        initial_coverage = diagnosis['coverage_analysis']['coverage_percentage']
+        print(f"Initial coverage: {initial_coverage}%")
+        
+        if initial_coverage >= 100:
+            return jsonify({
+                'already_complete': True,
+                'coverage': '100%',
+                'message': 'All documents already processed successfully!'
+            })
+        
+        # Step 2: Use automated queue system for processing
+        queue = get_document_queue()
+        
+        # Add all unprocessed documents to queue
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        queue_result = loop.run_until_complete(
+            queue.add_documents_to_queue(org_id)
+        )
+        
+        # Step 3: Wait for processing to complete (with timeout)
+        start_time = time.time()
+        max_wait = 300  # 5 minutes max
+        
+        while queue.is_processing and (time.time() - start_time) < max_wait:
+            time.sleep(2)  # Check every 2 seconds
+        
+        # Step 4: Verify final coverage
+        final_diagnosis = diagnostic.diagnose_coverage_issues(org_id)
+        final_coverage = final_diagnosis['coverage_analysis']['coverage_percentage']
+        
+        success = final_coverage >= 90  # 90%+ is considered success
+        
+        print(f"Final coverage: {final_coverage}%")
+        
+        return jsonify({
+            'fix_completed': True,
+            'success': success,
+            'initial_coverage': f"{initial_coverage}%",
+            'final_coverage': f"{final_coverage}%",
+            'queue_result': queue_result,
+            'documents_processed': queue_result['added_to_queue'],
+            'message': f"Coverage improved from {initial_coverage}% to {final_coverage}%"
+        })
+        
+    except Exception as e:
+        print(f"One-click fix failed: {str(e)}")
+        return jsonify({
+            'fix_completed': False,
+            'error': str(e),
+            'message': 'Fix attempt failed - please check logs'
+        }), 500
+
 if __name__ == "__main__":
     print(f"BoardContinuity using ORG={ORG_ID} USER={USER_ID}")
     port = int(os.environ.get('PORT', 5000))
