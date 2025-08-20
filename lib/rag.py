@@ -1,6 +1,7 @@
 from openai import OpenAI
 from lib.supa import supa, signed_url_for
 from lib.enterprise_guardrails import BoardContinuityGuardrails
+from lib.committee_agents import CommitteeManager
 import os, time, math
 import tiktoken
 import numpy as np
@@ -21,6 +22,16 @@ except Exception as e:
     logger.warning(f"Failed to initialize guardrails: {e}")
     guardrails = None
     GUARDRAILS_ENABLED = False
+
+# Initialize committee agents system
+try:
+    committee_manager = CommitteeManager()
+    COMMITTEE_AGENTS_ENABLED = True
+    logger.info("Committee agents system initialized successfully")
+except Exception as e:
+    logger.warning(f"Failed to initialize committee agents: {e}")
+    committee_manager = None
+    COMMITTEE_AGENTS_ENABLED = False
 
 # ==== CONFIG ====
 CHAT_PRIMARY   = os.getenv("CHAT_PRIMARY", "gpt-4o-mini")
@@ -369,6 +380,17 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
             logger.warning(f"Input blocked by guardrails: {safety_reason}")
             return "I apologize, but I cannot process this request as it doesn't align with board governance topics. Please ask questions related to institutional decisions, policies, or governance matters.", []
     
+    # Check for committee-enhanced response opportunity
+    committee_enhancement = None
+    if COMMITTEE_AGENTS_ENABLED and committee_manager:
+        try:
+            committee_enhancement = committee_manager.get_committee_enhanced_response(question, "")
+            if committee_enhancement.get('enhanced'):
+                logger.info(f"Committee enhancement available: {committee_enhancement['committees_consulted']}")
+        except Exception as e:
+            logger.warning(f"Committee enhancement failed: {e}")
+            committee_enhancement = None
+    
     # 1) retrieve (vector + keyword fallback)
     v_rows, q_emb = _vector(org_id, question, k=MAX_CANDIDATES)
     rows = v_rows
@@ -534,6 +556,38 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
             max_tokens=600
         ).choices[0].message.content)
     
+    # Committee enhancement integration
+    if committee_enhancement and committee_enhancement.get('enhanced'):
+        logger.info(f"Integrating committee expertise from: {committee_enhancement['committees_consulted']}")
+        committee_response = committee_enhancement.get('response', '')
+        if committee_response and len(committee_response) > 100:
+            # Blend committee expertise with standard RAG response
+            enhanced_prompt = f"""
+            STANDARD BOARDCONTINUITY RESPONSE:
+            {answer}
+            
+            SPECIALIZED COMMITTEE INSIGHTS:
+            {committee_response}
+            
+            SYNTHESIS INSTRUCTION: Combine these responses into a single, comprehensive BoardContinuity AI response that integrates both the document-based insights and specialized committee expertise. Maintain veteran board member voice throughout.
+            """
+            
+            try:
+                synthesis_response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": enhanced_prompt}],
+                    temperature=0.2,
+                    max_tokens=800
+                )
+                
+                enhanced_answer = synthesis_response.choices[0].message.content.strip()
+                if enhanced_answer and len(enhanced_answer) > 50:
+                    answer = enhanced_answer
+                    logger.info("Successfully integrated committee expertise")
+                
+            except Exception as e:
+                logger.warning(f"Committee integration synthesis failed: {e}")
+    
     # Output validation with enterprise guardrails
     if GUARDRAILS_ENABLED and guardrails:
         output_safe, quality_reason = guardrails.evaluate_output_quality(answer)
@@ -543,9 +597,20 @@ def answer_question_md(org_id: str, question: str, chat_model: str | None = None
             answer = "I apologize, but I need to refine my response to maintain institutional confidentiality standards. Please rephrase your question or contact board administration directly for sensitive information."
 
     # Return consistent dictionary format instead of tuple
-    return {
+    response_data = {
         'answer': answer,
         'sources': meta,
         'processing_time_ms': 0,
         'strategy': 'standard_rag'
     }
+    
+    # Add committee enhancement metadata if available
+    if committee_enhancement and committee_enhancement.get('enhanced'):
+        response_data.update({
+            'committee_enhanced': True,
+            'committees_consulted': committee_enhancement.get('committees_consulted', []),
+            'committee_count': committee_enhancement.get('committee_count', 0),
+            'strategy': 'committee_enhanced_rag'
+        })
+    
+    return response_data

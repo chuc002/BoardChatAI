@@ -1,0 +1,169 @@
+# Update lib/perfect_rag.py to integrate agent patterns:
+
+from lib.enterprise_guardrails import BoardContinuityGuardrails
+from lib.committee_agents import CommitteeManager
+import time
+
+class EnterpriseRAGAgent:
+    def __init__(self):
+        self.guardrails = BoardContinuityGuardrails()
+        self.committee_manager = CommitteeManager()
+        self.instructions = BOARDCONTINUITY_AGENT_INSTRUCTIONS
+        
+        # Tools available to the agent
+        self.tools = {
+            'document_search': self._search_documents,
+            'pattern_analysis': self._analyze_patterns,
+            'precedent_lookup': self._lookup_precedents,
+            'committee_consultation': self._consult_committees,
+            'outcome_prediction': self._predict_outcomes
+        }
+    
+    def run(self, org_id: str, query: str) -> Dict[str, Any]:
+        """Main agent execution loop"""
+        
+        start_time = time.time()
+        
+        # Input guardrails
+        input_checks = self.guardrails.check_input(query)
+        
+        # Check if query passes guardrails
+        if not self._passes_guardrails(input_checks):
+            return self._create_guardrail_response(input_checks)
+        
+        # Determine if committee consultation needed
+        routing = self.committee_manager.route_query(query, "")
+        
+        # Execute main reasoning loop
+        context = self._gather_context(org_id, query)
+        
+        if routing['route'] == 'specific' and routing['committees']:
+            # Multi-agent committee consultation
+            response = self._execute_committee_consultation(org_id, query, context, routing['committees'])
+        else:
+            # Single agent response
+            response = self._execute_single_agent(org_id, query, context)
+        
+        # Output guardrails
+        output_checks = self.guardrails.check_output(response['response'])
+        
+        if not self._passes_guardrails(output_checks):
+            response['response'] = "I need to reconsider my response to ensure it meets our standards. Please rephrase your question."
+            response['guardrail_flags'] = output_checks
+        
+        # Add performance metadata
+        response['performance'] = {
+            'response_time_ms': int((time.time() - start_time) * 1000),
+            'guardrails_passed': self._passes_guardrails({**input_checks, **output_checks}),
+            'routing_decision': routing,
+            'agent_type': 'committee_consultation' if routing['route'] == 'specific' else 'single_agent'
+        }
+        
+        return response
+    
+    def _passes_guardrails(self, checks: Dict[str, Any]) -> bool:
+        """Check if all guardrails pass"""
+        return all(check.passed for check in checks.values())
+    
+    def _create_guardrail_response(self, checks: Dict[str, Any]) -> Dict[str, Any]:
+        """Create response when guardrails fail"""
+        failed_checks = [name for name, check in checks.items() if not check.passed]
+        
+        return {
+            'response': "I'm unable to process that request. Please ensure your question relates to board governance matters.",
+            'guardrail_flags': checks,
+            'failed_checks': failed_checks,
+            'confidence': 0.0
+        }
+    
+    def _execute_committee_consultation(self, org_id: str, query: str, context: str, committees: List[str]) -> Dict[str, Any]:
+        """Execute multi-agent committee consultation"""
+        
+        # Get committee perspectives
+        perspectives = self.committee_manager.get_committee_perspectives(query, context, committees)
+        
+        # Synthesize committee input with general governance knowledge
+        synthesis_prompt = f"""
+        {self.instructions}
+        
+        GOVERNANCE CONTEXT: {context}
+        
+        COMMITTEE PERSPECTIVES:
+        {self._format_committee_perspectives(perspectives)}
+        
+        USER QUERY: {query}
+        
+        Synthesize the committee perspectives with your institutional memory to provide a comprehensive response.
+        Include specific committee insights while maintaining your 30-year veteran perspective.
+        """
+        
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": synthesis_prompt}],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            
+            return {
+                'response': response.choices[0].message.content,
+                'committee_perspectives': perspectives,
+                'synthesis_approach': 'committee_consultation',
+                'committees_consulted': committees,
+                'confidence': 0.9
+            }
+            
+        except Exception as e:
+            return {
+                'response': f"I encountered an issue synthesizing committee perspectives: {str(e)}",
+                'committee_perspectives': perspectives,
+                'error': str(e),
+                'confidence': 0.3
+            }
+    
+    def _execute_single_agent(self, org_id: str, query: str, context: str) -> Dict[str, Any]:
+        """Execute single agent response"""
+        
+        full_prompt = f"""
+        {self.instructions}
+        
+        GOVERNANCE CONTEXT: {context}
+        
+        USER QUERY: {query}
+        
+        Provide your institutional wisdom and guidance on this matter.
+        """
+        
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": full_prompt}],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            
+            return {
+                'response': response.choices[0].message.content,
+                'approach': 'single_agent',
+                'confidence': 0.85
+            }
+            
+        except Exception as e:
+            return {
+                'response': f"I encountered an issue processing your request: {str(e)}",
+                'error': str(e),
+                'confidence': 0.2
+            }
+    
+    def _format_committee_perspectives(self, perspectives: List[Dict[str, Any]]) -> str:
+        """Format committee perspectives for synthesis"""
+        formatted = []
+        
+        for perspective in perspectives:
+            formatted.append(f"""
+{perspective['committee']} Committee Perspective:
+{perspective['response']}
+---
+""")
+        
+        return "\n".join(formatted)
